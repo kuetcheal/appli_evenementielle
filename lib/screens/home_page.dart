@@ -9,202 +9,332 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  int _currentIndex = 0;
+  final ScrollController _scrollController = ScrollController();
 
-  // 👇 Fake events
+  // Fake events
   final List<Map<String, String>> _events = [
-    {"title": "Concert Georgien", "location": "Place de la Comédie, Montpellier"},
-    {"title": "Cuisine avec Cyrille", "location": "Rondelet"},
-    {"title": "Salon Tech 2025", "location": "Parc Expo"},
-    {"title": "Festival Culinaire", "location": "Montpellier Centre"},
-    {"title": "Conférence IA", "location": "Université de Montpellier"},
+    {
+      "title": "Concert Georgien",
+      "location": "Place de la Comédie, Montpellier",
+      "participants": "+2000 participants"
+    },
+    {
+      "title": "Cuisine avec Cyrille",
+      "location": "Rondelet",
+      "participants": "+8 participants"
+    },
+    {
+      "title": "Salon Tech 2025",
+      "location": "Parc Expo",
+      "participants": "+120 participants"
+    },
+    {
+      "title": "Festival Culinaire",
+      "location": "Montpellier Centre",
+      "participants": "+560 participants"
+    },
+    {
+      "title": "Conférence IA",
+      "location": "Université de Montpellier",
+      "participants": "+300 participants"
+    },
   ];
+
+  double _scrollPosition = 0.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(() {
+      setState(() {
+        final maxScroll = _scrollController.position.maxScrollExtent;
+        _scrollPosition =
+        maxScroll > 0 ? _scrollController.offset / maxScroll : 0.0;
+      });
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Pages de navigation (les vraies pages à remplacer plus tard)
-    final List<Widget> _pages = [
-      _buildDiscoverPage(),
-      const Center(child: Text("Plan Page")),
-      const Center(child: Text("Événements Page")),
-      const LoginPage(), // 👈 profil envoie vers Login
-    ];
-
     return Scaffold(
-      body: _pages[_currentIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-        selectedItemColor: Colors.purple,
-        unselectedItemColor: Colors.grey,
-        type: BottomNavigationBarType.fixed,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.explore),
-            label: "Découvrir",
+      backgroundColor: Colors.transparent,
+      body: Stack(
+        children: [
+          // 🔹 Header bleu foncé avec arrondi bas
+          Container(
+            height: 230,
+            decoration: const BoxDecoration(
+              color: Color(0xFF0A2E44),
+              borderRadius: BorderRadius.vertical(
+                bottom: Radius.circular(40),
+              ),
+            ),
+            padding: const EdgeInsets.only(top: 50, left: 20, right: 20),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Icon(Icons.notifications, color: Colors.white),
+                    Column(
+                      children: const [
+                        Text("Current Location",
+                            style: TextStyle(color: Colors.white70, fontSize: 12)),
+                        SizedBox(height: 2),
+                        Text("34000, Montpellier",
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14)),
+                      ],
+                    ),
+                    const Icon(Icons.arrow_drop_down, color: Colors.white),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                // 🔎 Barre recherche
+                Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const TextField(
+                          style: TextStyle(color: Colors.white),
+                          decoration: InputDecoration(
+                            hintText: "Rechercher...",
+                            hintStyle: TextStyle(color: Colors.white70),
+                            border: InputBorder.none,
+                            icon: Icon(Icons.search, color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.purple,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: () {},
+                      icon: const Icon(Icons.filter_list, color: Colors.white),
+                      label: const Text("Filtres",
+                          style: TextStyle(color: Colors.white)),
+                    )
+                  ],
+                ),
+              ],
+            ),
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.map),
-            label: "Plan",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.event),
-            label: "Événements",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: "Profil",
+
+          // 🔹 Contenu scrollable
+          SingleChildScrollView(
+            padding: const EdgeInsets.only(top: 210),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Catégories
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      _buildCategoryChip("Concerts", Colors.red, Icons.music_note),
+                      _buildCategoryChip("Salons", Colors.orange, Icons.store),
+                      _buildCategoryChip("Culinaire", Colors.green, Icons.restaurant),
+                      _buildCategoryChip("Art", Colors.blue, Icons.brush),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Section A venir
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: const [
+                      Text("À venir",
+                          style: TextStyle(
+                              fontSize: 20, fontWeight: FontWeight.bold)),
+                      Text("Voir tout >", style: TextStyle(color: Colors.blueAccent)),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                // 🔹 Scroll horizontal
+                SizedBox(
+                  height: 250,
+                  child: ListView.separated(
+                    controller: _scrollController,
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: _events.length,
+                    separatorBuilder: (context, index) =>
+                    const SizedBox(width: 15), // gap entre cards
+                    itemBuilder: (context, index) {
+                      return SizedBox(
+                        width: 290,
+                        child: _buildEventCard(_events[index]),
+                      );
+                    },
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                // 🔹 Barre de progression SOUS les cards
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      return Container(
+                        height: 6,
+                        width: constraints.maxWidth,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: FractionallySizedBox(
+                            widthFactor: (1 / _events.length) +
+                                (_scrollPosition *
+                                    (1 - (1 / _events.length))),
+                            child: Container(
+                              height: 6,
+                              decoration: BoxDecoration(
+                                color: Colors.purple,
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                // 🔹 Bloc INVITE + image
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.yellow,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        onPressed: () {},
+                        child: const Text("INVITE",
+                            style: TextStyle(
+                                color: Colors.black,
+                                fontWeight: FontWeight.bold)),
+                      ),
+                      Image.asset(
+                        "assets/cadeau.png",
+                        height: 150,
+                        width: 190,
+                        fit: BoxFit.contain,
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                // 🔹 Section À proximité
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: const [
+                      Text("À proximité de vous",
+                          style: TextStyle(
+                              fontSize: 20, fontWeight: FontWeight.bold)),
+                      Text("Voir tout >", style: TextStyle(color: Colors.blueAccent)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  /// ✅ Page Découvrir
-  Widget _buildDiscoverPage() {
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Barre de recherche
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    decoration: InputDecoration(
-                      hintText: "Rechercher...",
-                      prefixIcon: const Icon(Icons.search),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      filled: true,
-                      fillColor: Colors.grey.shade100,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.purple,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  onPressed: () {},
-                  icon: const Icon(Icons.filter_list, color: Colors.white),
-                  label: const Text("Filtres", style: TextStyle(color: Colors.white)),
-                )
-              ],
-            ),
-            const SizedBox(height: 20),
-
-            // Catégories (chips)
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _buildCategoryChip("Concerts", Colors.red),
-                  _buildCategoryChip("Salons", Colors.orange),
-                  _buildCategoryChip("Culinaire", Colors.green),
-                  _buildCategoryChip("Art", Colors.blue),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // Section A venir
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: const [
-                Text(
-                  "À venir",
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                Text("Voir tout >", style: TextStyle(color: Colors.blueAccent)),
-              ],
-            ),
-            const SizedBox(height: 10),
-
-            // Liste horizontale d’événements
-            SizedBox(
-              height: 220,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: _events.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 16),
-                itemBuilder: (context, index) {
-                  return _buildEventCard(_events[index]);
-                },
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            // Section à proximité
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: const [
-                Text(
-                  "À proximité de vous",
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                Text("Voir tout >", style: TextStyle(color: Colors.blueAccent)),
-              ],
-            ),
-            // 👉 tu pourras ajouter une autre liste plus tard
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// ✅ Widget pour un événement
+  /// ✅ Widget Event enrichi
   Widget _buildEventCard(Map<String, String> event) {
     return Container(
-      width: 180,
-      decoration: BoxDecoration(
+      width: 290,
+      decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: Colors.black12,
             blurRadius: 5,
             spreadRadius: 1,
-            offset: const Offset(0, 2),
+            offset: Offset(0, 2),
           )
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-            child: Image.asset(
-              "assets/concert.png", // 👈 image brute pour l'instant
-              height: 110,
-              width: double.infinity,
-              fit: BoxFit.cover,
-            ),
-          ),
+          Image.asset("assets/concert.png",
+              height: 130, width: double.infinity, fit: BoxFit.cover),
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  event["title"]!,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                Text(event["title"]!,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 16)),
+                const SizedBox(height: 6),
+
+                // ✅ Participants
+                Row(
+                  children: [
+                    const CircleAvatar(
+                        radius: 10,
+                        backgroundImage: AssetImage("assets/concert.png")),
+                    const SizedBox(width: 4),
+                    const CircleAvatar(
+                        radius: 10,
+                        backgroundImage: AssetImage("assets/concert.png")),
+                    const SizedBox(width: 4),
+                    Text(event["participants"] ?? "+0 participants",
+                        style: const TextStyle(
+                            color: Colors.blueAccent, fontSize: 12)),
+                  ],
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  event["location"]!,
-                  style: const TextStyle(color: Colors.black54, fontSize: 12),
+                const SizedBox(height: 6),
+
+                // ✅ Localisation avec icône
+                Row(
+                  children: [
+                    const Icon(Icons.location_on,
+                        size: 14, color: Colors.grey),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(event["location"]!,
+                          style: const TextStyle(
+                              color: Colors.black54, fontSize: 12)),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -214,19 +344,23 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  /// ✅ Widget pour les catégories
-  Widget _buildCategoryChip(String label, Color color) {
+  /// ✅ Widget Category
+  Widget _buildCategoryChip(String label, Color color, IconData icon) {
     return Container(
       margin: const EdgeInsets.only(right: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color),
+        color: color,
+        borderRadius: BorderRadius.circular(25),
       ),
-      child: Text(
-        label,
-        style: TextStyle(color: color, fontWeight: FontWeight.bold),
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.white, size: 18),
+          const SizedBox(width: 6),
+          Text(label,
+              style: const TextStyle(
+                  color: Colors.white, fontWeight: FontWeight.bold)),
+        ],
       ),
     );
   }
