@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -9,6 +11,34 @@ class RegisterPage extends StatefulWidget {
 
 class _RegisterPageState extends State<RegisterPage> {
   bool _obscurePassword = true;
+  final _nameController = TextEditingController();
+  final _mailController = TextEditingController();  // ✅ remplacé
+  final _phoneController = TextEditingController();
+  final _passwordController = TextEditingController();
+
+  Future<void> _register() async {
+    final response = await http.post(
+      Uri.parse("http://10.0.2.2:3000/api/auth/register"), // ⚠️ Android Emulator
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
+        "nom": _nameController.text,
+        "mail": _mailController.text,  // ✅ remplacé
+        "numero_telephone": _phoneController.text,
+        "password": _passwordController.text,
+      }),
+    );
+
+    if (response.statusCode == 201) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Compte créé avec succès ✅")),
+      );
+      Navigator.pushNamed(context, "/login");
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Erreur: ${response.body}")),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -20,236 +50,79 @@ class _RegisterPageState extends State<RegisterPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Logo en haut
-              Center(
-                child: Column(
-                  children: [
-                    Image.asset(
-                      "assets/logo-event.png",
-                      height: 100,
-                    ),
-                    const SizedBox(height: 20),
-                  ],
-                ),
-              ),
-
-              const Text(
-                "Créer votre compte",
-                style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
-              ),
+              Center(child: Image.asset("assets/logo-event.png", height: 100)),
+              const SizedBox(height: 20),
+              const Text("Créer votre compte",
+                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
               const SizedBox(height: 30),
 
-              // Champ Nom
-              TextField(
-                decoration: InputDecoration(
-                  labelText: "Name",
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 15, vertical: 18),
-                ),
-              ),
+              // Champs
+              TextField(controller: _nameController, decoration: _input("Nom")), // ✅ traduit
               const SizedBox(height: 20),
-
-              // Champ Email
-              TextField(
-                decoration: InputDecoration(
-                  labelText: "E-mail",
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 15, vertical: 18),
-                ),
-              ),
+              TextField(controller: _mailController, decoration: _input("Mail")), // ✅ remplacé
               const SizedBox(height: 20),
-
-              // Champ Téléphone
-              TextField(
-                decoration: InputDecoration(
-                  labelText: "Phone",
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 15, vertical: 18),
-                ),
-              ),
+              TextField(controller: _phoneController, decoration: _input("Téléphone")), // ✅ traduit
               const SizedBox(height: 20),
-
-              // Champ Mot de passe
               TextField(
+                controller: _passwordController,
                 obscureText: _obscurePassword,
-                decoration: InputDecoration(
-                  labelText: "Password",
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 15, vertical: 18),
+                decoration: _input("Mot de passe").copyWith( // ✅ traduit
                   suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscurePassword
-                          ? Icons.visibility_off
-                          : Icons.visibility,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _obscurePassword = !_obscurePassword;
-                      });
-                    },
+                    icon: Icon(_obscurePassword
+                        ? Icons.visibility_off
+                        : Icons.visibility),
+                    onPressed: () =>
+                        setState(() => _obscurePassword = !_obscurePassword),
                   ),
                 ),
               ),
-
               const SizedBox(height: 20),
 
-              // ✅ Conditions avec liens cliquables
-              Center(
-                child: Text.rich(
-                  TextSpan(
-                    text: "By signing up you agree to our ",
-                    style: const TextStyle(fontSize: 12, color: Colors.black54),
-                    children: [
-                      TextSpan(
-                        text: "Terms & Conditions",
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.blueAccent,
-                          decoration: TextDecoration.underline,
-                        ),
-                        // action si tu veux
-                      ),
-                      const TextSpan(text: " and "),
-                      TextSpan(
-                        text: "Privacy Policy",
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.blueAccent,
-                          decoration: TextDecoration.underline,
-                        ),
-                      ),
-                    ],
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              // Bouton Sign Up
+              // Bouton
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
+                  onPressed: _register,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.black,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                        borderRadius: BorderRadius.circular(12)),
                   ),
-                  onPressed: () {
-                    // Action inscription
-                  },
-                  child: const Text(
-                    "Sign Up",
-                    style: TextStyle(fontSize: 16, color: Colors.white),
-                  ),
+                  child: const Text("S'inscrire", // ✅ traduit
+                      style: TextStyle(fontSize: 16, color: Colors.white)),
                 ),
               ),
 
-              const SizedBox(height: 30),
-
-              // Ligne "Or sign in with"
-              Row(
-                children: const [
-                  Expanded(child: Divider()),
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 10),
-                    child: Text("Or sign in with"),
-                  ),
-                  Expanded(child: Divider()),
-                ],
-              ),
-
               const SizedBox(height: 20),
-
-              // Réseaux sociaux
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  IconButton(
-                    icon: Image.asset("assets/google.png", height: 30),
-                    onPressed: () {},
-                  ),
-                  const SizedBox(width: 20),
-                  IconButton(
-                    icon: Image.asset("assets/facebook.png", height: 30),
-                    onPressed: () {},
-                  ),
-                  const SizedBox(width: 20),
-                  IconButton(
-                    icon: Image.asset("assets/apple.png", height: 30),
-                    onPressed: () {},
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 30),
-
-              // ✅ Lien Login + Footer
-              Column(
-                children: [
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.pop(context); // Retour à Login
-                    },
-                    child: const Text.rich(
-                      TextSpan(
-                        text: "Already have an Account? ",
-                        style: TextStyle(color: Colors.black54),
-                        children: [
-                          TextSpan(
-                            text: "Log In",
+              Center(
+                child: GestureDetector(
+                  onTap: () => Navigator.pushNamed(context, "/login"),
+                  child: const Text.rich(TextSpan(
+                      text: "Vous avez déjà un compte ? ", // ✅ traduit
+                      style: TextStyle(color: Colors.black54),
+                      children: [
+                        TextSpan(
+                            text: "Se connecter",
                             style: TextStyle(
-                              color: Colors.blueAccent,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          )
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Icônes réseaux
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      Icon(Icons.linked_camera, size: 22, color: Colors.black54), // tu peux remplacer par un vrai asset linkedin.png
-                      SizedBox(width: 20),
-                      Icon(Icons.camera_alt, size: 22, color: Colors.black54), // instagram placeholder
-                      SizedBox(width: 20),
-                      Icon(Icons.settings, size: 22, color: Colors.black54), // autre placeholder
-                    ],
-                  ),
-
-                  const SizedBox(height: 10),
-
-                  const Text(
-                    "Copyright © 2025, EventGo. All rights reserved.",
-                    style: TextStyle(fontSize: 12, color: Colors.black54),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
+                                color: Colors.blueAccent,
+                                fontWeight: FontWeight.bold))
+                      ])),
+                ),
               ),
-
-              const SizedBox(height: 20),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  InputDecoration _input(String label) {
+    return InputDecoration(
+      labelText: label,
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      contentPadding:
+      const EdgeInsets.symmetric(horizontal: 15, vertical: 18),
     );
   }
 }

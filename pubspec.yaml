@@ -1,16 +1,17 @@
 name: application_voyage
 description: "A new Flutter project."
-publish_to: 'none'
+publish_to: 'none' # Remove this line si tu veux publier sur pub.dev
 
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.6.1
+  sdk: ">=3.6.1 <4.0.0"
 
 dependencies:
   flutter:
     sdk: flutter
-
+  http: ^0.13.6
+  shared_preferences: ^2.0.15
   cupertino_icons: ^1.0.8
 
 dev_dependencies:
@@ -29,4 +30,3 @@ flutter:
     - assets/apple.png
     - assets/facebook.png
     - assets/concert.png
-
