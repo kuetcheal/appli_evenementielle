@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'detail_event_page.dart';
 
 class ListEventPage extends StatelessWidget {
   const ListEventPage({Key? key}) : super(key: key);
@@ -19,7 +20,7 @@ class ListEventPage extends StatelessWidget {
         "image": "assets/concert.png"
       },
       {
-        "date": "Sat, Apr 24 - 1:30 PM",
+        "date": "Sam, Apr 24 - 1:30 PM",
         "title": "Cuisine avec Cyril Lignac",
         "location": "53 rue du millénaire",
         "image": "assets/concert.png"
@@ -37,7 +38,7 @@ class ListEventPage extends StatelessWidget {
         "image": "assets/concert.png"
       },
       {
-        "date": "Fri, Apr 23 - 6:00 PM",
+        "date": "Ven, Apr 23 - 6:00 PM",
         "title": "International Kids Safe Parents",
         "location": "Lot 13 • Oakland, CA",
         "image": "assets/concert.png"
@@ -77,11 +78,11 @@ class ListEventPage extends StatelessWidget {
               ],
             ),
             child: Padding(
-              padding: const EdgeInsets.all(10.0), // <-- padding général
+              padding: const EdgeInsets.all(10.0),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // IMAGE avec coins arrondis
+                  // IMAGE
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: Image.asset(
@@ -91,10 +92,9 @@ class ListEventPage extends StatelessWidget {
                       fit: BoxFit.cover,
                     ),
                   ),
-
                   const SizedBox(width: 12),
 
-                  // TEXTE au centre
+                  // TEXTE
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -137,12 +137,20 @@ class ListEventPage extends StatelessWidget {
                     ),
                   ),
 
-                  // COLONNE avec 3 points + Détails
+                  // ACTION
                   Column(
                     children: [
                       const Icon(Icons.more_horiz, color: Colors.grey),
                       TextButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  DetailEventPage(event: event),
+                            ),
+                          );
+                        },
                         child: const Text(
                           "Détails",
                           style: TextStyle(
