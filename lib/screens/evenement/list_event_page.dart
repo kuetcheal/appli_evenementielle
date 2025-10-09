@@ -1,49 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../providers/events_provider.dart';
 import 'detail_event_page.dart';
 
-class ListEventPage extends StatelessWidget {
+class ListEventPage extends StatefulWidget {
   const ListEventPage({Key? key}) : super(key: key);
 
   @override
+  State<ListEventPage> createState() => _ListEventPageState();
+}
+
+class _ListEventPageState extends State<ListEventPage> {
+  @override
+  void initState() {
+    super.initState();
+    // Charger les événements dès l’ouverture de la page
+    Future.microtask(() =>
+        Provider.of<EventsProvider>(context, listen: false).fetchEvents());
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final List<Map<String, dynamic>> events = [
-      {
-        "date": "Mer, Apr 28 - 5:30 PM",
-        "title": "Concert Georgien",
-        "location": "Sud Arena, Montpellier",
-        "image": "assets/concert.png"
-      },
-      {
-        "date": "Sam, Mai 1 - 2:00 PM",
-        "title": "Job dating",
-        "location": "3, Place de la comédie",
-        "image": "assets/concert.png"
-      },
-      {
-        "date": "Sam, Apr 24 - 1:30 PM",
-        "title": "Cuisine avec Cyril Lignac",
-        "location": "53 rue du millénaire",
-        "image": "assets/concert.png"
-      },
-      {
-        "date": "Ven, Apr 23 - 6:00 PM",
-        "title": "Final de Tournoi de foot",
-        "location": "Astroc, Montpellier",
-        "image": "assets/concert.png"
-      },
-      {
-        "date": "Lun, Jun 21 - 10:00 AM",
-        "title": "Journée écologique",
-        "location": "14 Rue François",
-        "image": "assets/concert.png"
-      },
-      {
-        "date": "Ven, Apr 23 - 6:00 PM",
-        "title": "International Kids Safe Parents",
-        "location": "Lot 13 • Oakland, CA",
-        "image": "assets/concert.png"
-      },
-    ];
+    final provider = Provider.of<EventsProvider>(context);
 
     return Scaffold(
       appBar: AppBar(
@@ -58,11 +36,20 @@ class ListEventPage extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: ListView.builder(
+      body: provider.isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : provider.error != null
+          ? Center(
+        child: Text(
+          provider.error!,
+          style: const TextStyle(color: Colors.red),
+        ),
+      )
+          : ListView.builder(
         padding: const EdgeInsets.all(16),
-        itemCount: events.length,
+        itemCount: provider.events.length,
         itemBuilder: (context, index) {
-          final event = events[index];
+          final event = provider.events[index];
           return Container(
             margin: const EdgeInsets.only(bottom: 16),
             decoration: BoxDecoration(
@@ -85,8 +72,15 @@ class ListEventPage extends StatelessWidget {
                   // IMAGE
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12),
-                    child: Image.asset(
-                      event["image"],
+                    child: event["image_url"] != null
+                        ? Image.network(
+                      event["image_url"],
+                      width: 90,
+                      height: 90,
+                      fit: BoxFit.cover,
+                    )
+                        : Image.asset(
+                      "assets/concert.png",
                       width: 90,
                       height: 90,
                       fit: BoxFit.cover,
@@ -100,7 +94,7 @@ class ListEventPage extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          event["date"],
+                          "${event['date_event']} • ${event['time_event']}",
                           style: const TextStyle(
                             fontSize: 13,
                             color: Colors.purple,
@@ -109,7 +103,7 @@ class ListEventPage extends StatelessWidget {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          event["title"],
+                          event["title"] ?? "Sans titre",
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -123,7 +117,7 @@ class ListEventPage extends StatelessWidget {
                             const SizedBox(width: 4),
                             Expanded(
                               child: Text(
-                                event["location"],
+                                "${event['location'] ?? ''}, ${event['city'] ?? ''}",
                                 style: const TextStyle(
                                   fontSize: 13,
                                   color: Colors.grey,
