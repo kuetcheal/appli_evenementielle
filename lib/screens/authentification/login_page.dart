@@ -1,8 +1,8 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../home_page.dart';
+import '../../../providers/user_provider.dart';
+import '../main_page.dart'; // ✅ redirection correcte vers MainPage
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -13,13 +13,13 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   bool _obscurePassword = true;
-  final _mailController = TextEditingController(); // renamed for clarity
+  final _mailController = TextEditingController();
   final _passwordController = TextEditingController();
-  bool _loading = false;
 
   Future<void> _login() async {
     final mail = _mailController.text.trim();
     final password = _passwordController.text;
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
 
     if (mail.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -28,77 +28,27 @@ class _LoginPageState extends State<LoginPage> {
       return;
     }
 
-    setState(() => _loading = true);
+    final success = await userProvider.login(mail: mail, password: password);
 
-    try {
-      final response = await http.post(
-        Uri.parse("http://10.0.2.2:3000/api/auth/login"),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          "mail": mail, // important -> mail (pas email)
-          "password": password,
-        }),
+    if (success) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString("mail", mail);
+
+      // ✅ Redirection vers MainPage après succès
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const MainPage()),
       );
-
-      // Debug: affiche status et body
-      debugPrint("Login status: ${response.statusCode}");
-      debugPrint("Login body: ${response.body}");
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final token = data["token"] as String?;
-
-        if (token == null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("Réponse inattendue: ${response.body}")),
-          );
-        } else {
-          SharedPreferences prefs = await SharedPreferences.getInstance();
-          await prefs.setString("token", token);
-
-          // Optionnel: sauvegarder user info si utile
-          // await prefs.setString("user", jsonEncode(data['user']));
-
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const HomePage()),
-          );
-        }
-      } else {
-        // affiche message d'erreur renvoyé par l'API (body)
-        String message = response.body;
-        try {
-          final parsed = jsonDecode(response.body);
-          if (parsed is Map && parsed['message'] != null) {
-            message = parsed['message'].toString();
-          } else if (parsed is Map && parsed['error'] != null) {
-            message = parsed['error'].toString();
-          }
-        } catch (_) { /* ignore JSON parse errors */ }
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Erreur: $message")),
-        );
-      }
-    } catch (e) {
-      debugPrint("Login request failed: $e");
+    } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Erreur réseau: $e")),
+        SnackBar(content: Text(userProvider.errorMessage ?? "Erreur inconnue")),
       );
-    } finally {
-      setState(() => _loading = false);
     }
   }
 
   @override
-  void dispose() {
-    _mailController.dispose();
-    _passwordController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final userProvider = Provider.of<UserProvider>(context);
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -116,7 +66,7 @@ class _LoginPageState extends State<LoginPage> {
                   style: TextStyle(color: Colors.black54, fontSize: 14)),
               const SizedBox(height: 30),
 
-              // Champs
+              // Champs de connexion
               TextField(
                 controller: _mailController,
                 decoration: _input("Mail"),
@@ -138,19 +88,34 @@ class _LoginPageState extends State<LoginPage> {
               ),
               const SizedBox(height: 20),
 
+              // Bouton de connexion
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _loading ? null : _login,
+                  onPressed: userProvider.isLoading ? null : _login,
                   style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.black,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12))),
-                  child: _loading
-                      ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : const Text("Connectez-vous",
-                      style: TextStyle(color: Colors.white, fontSize: 16)),
+                    backgroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: userProvider.isLoading
+                      ? const SizedBox(
+                    height: 16,
+                    width: 16,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                      : const Text(
+                    "Connectez-vous",
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold),
+                  ),
                 ),
               ),
 
@@ -158,16 +123,21 @@ class _LoginPageState extends State<LoginPage> {
               Center(
                 child: GestureDetector(
                   onTap: () => Navigator.pushNamed(context, "/register"),
-                  child: const Text.rich(TextSpan(
+                  child: const Text.rich(
+                    TextSpan(
                       text: "Don't have an account? ",
                       style: TextStyle(color: Colors.black54),
                       children: [
                         TextSpan(
-                            text: "Sign up",
-                            style: TextStyle(
-                                color: Colors.blueAccent,
-                                fontWeight: FontWeight.bold))
-                      ])),
+                          text: "Sign up",
+                          style: TextStyle(
+                            color: Colors.blueAccent,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ],

@@ -1,9 +1,9 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
+import '../../../providers/user_provider.dart';
 
 class VerificationPage extends StatefulWidget {
-  final String mail; // email du user (envoyé depuis register_page)
+  final String mail;
 
   const VerificationPage({super.key, required this.mail});
 
@@ -15,30 +15,31 @@ class _VerificationPageState extends State<VerificationPage> {
   final _codeController = TextEditingController();
 
   Future<void> _verifyCode() async {
-    final response = await http.post(
-      Uri.parse("http://10.0.2.2:3000/api/auth/verify"),
-      headers: {"Content-Type": "application/json"},
-      body: jsonEncode({
-        "mail": widget.mail,
-        "code": _codeController.text,
-      }),
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final success = await userProvider.verifyEmail(
+      mail: widget.mail,
+      code: _codeController.text.trim(),
     );
 
-    if (response.statusCode == 200) {
+    if (success) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Compte vérifié avec succès 🎉")),
       );
       Navigator.pushNamed(context, "/login");
     } else {
-      final body = jsonDecode(response.body);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(body['error'] ?? "Code invalide")),
+        SnackBar(
+          content: Text(userProvider.errorMessage ?? "Code invalide"),
+          backgroundColor: Colors.redAccent,
+        ),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final userProvider = Provider.of<UserProvider>(context);
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -84,15 +85,25 @@ class _VerificationPageState extends State<VerificationPage> {
               ),
               const SizedBox(height: 25),
               ElevatedButton(
-                onPressed: _verifyCode,
+                onPressed: userProvider.isLoading ? null : _verifyCode,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.black,
-                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 40),
+                  padding: const EdgeInsets.symmetric(
+                      vertical: 14, horizontal: 40),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text(
+                child: userProvider.isLoading
+                    ? const SizedBox(
+                  height: 18,
+                  width: 18,
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2,
+                  ),
+                )
+                    : const Text(
                   "Vérifier le code",
                   style: TextStyle(fontSize: 16, color: Colors.white),
                 ),

@@ -14,7 +14,6 @@ class _ListEventPageState extends State<ListEventPage> {
   @override
   void initState() {
     super.initState();
-    // Charger les événements dès l’ouverture de la page
     Future.microtask(() =>
         Provider.of<EventsProvider>(context, listen: false).fetchEvents());
   }
@@ -50,6 +49,7 @@ class _ListEventPageState extends State<ListEventPage> {
         itemCount: provider.events.length,
         itemBuilder: (context, index) {
           final event = provider.events[index];
+
           return Container(
             margin: const EdgeInsets.only(bottom: 16),
             decoration: BoxDecoration(
@@ -69,7 +69,7 @@ class _ListEventPageState extends State<ListEventPage> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // IMAGE
+                  // ✅ IMAGE
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: event["image_url"] != null
@@ -78,6 +78,13 @@ class _ListEventPageState extends State<ListEventPage> {
                       width: 90,
                       height: 90,
                       fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) =>
+                          Image.asset(
+                            "assets/concert.png",
+                            width: 90,
+                            height: 90,
+                            fit: BoxFit.cover,
+                          ),
                     )
                         : Image.asset(
                       "assets/concert.png",
@@ -88,7 +95,7 @@ class _ListEventPageState extends State<ListEventPage> {
                   ),
                   const SizedBox(width: 12),
 
-                  // TEXTE
+                  // ✅ TEXTE
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -131,7 +138,7 @@ class _ListEventPageState extends State<ListEventPage> {
                     ),
                   ),
 
-                  // ACTION
+                  // ✅ ACTION
                   Column(
                     children: [
                       const Icon(Icons.more_horiz, color: Colors.grey),

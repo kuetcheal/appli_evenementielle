@@ -1,7 +1,7 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'verification_page.dart'; // ✅ import pour la redirection
+import 'package:provider/provider.dart';
+import '../../../providers/user_provider.dart';
+import 'verification_page.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -17,52 +17,35 @@ class _RegisterPageState extends State<RegisterPage> {
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
 
-  bool _isLoading = false; // ✅ indicateur de chargement
-
   Future<void> _register() async {
-    setState(() => _isLoading = true);
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
 
-    final response = await http.post(
-      Uri.parse("http://10.0.2.2:3000/api/auth/register"), // ⚠️ Android Emulator
-      headers: {"Content-Type": "application/json"},
-      body: jsonEncode({
-        "nom": _nameController.text.trim(),
-        "mail": _mailController.text.trim(),
-        "numero_telephone": _phoneController.text.trim(),
-        "password": _passwordController.text,
-      }),
+    final success = await userProvider.register(
+      nom: _nameController.text.trim(),
+      mail: _mailController.text.trim(),
+      numeroTelephone: _phoneController.text.trim(),
+      password: _passwordController.text,
     );
 
-    setState(() => _isLoading = false);
-
-    if (response.statusCode == 201 || response.statusCode == 200) {
-      // ✅ Message de confirmation
+    if (success) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Code de vérification envoyé à votre adresse e-mail 📩"),
+          content: Text("Code de vérification envoyé à votre e-mail "),
           backgroundColor: Colors.green,
         ),
       );
 
-      // ✅ Redirection vers la page de vérification
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => VerificationPage(
-            mail: _mailController.text.trim(),
-          ),
+          builder: (_) =>
+              VerificationPage(mail: _mailController.text.trim()),
         ),
       );
     } else {
-      String errorMsg = "Erreur inconnue";
-      try {
-        final body = jsonDecode(response.body);
-        errorMsg = body['error'] ?? response.body;
-      } catch (_) {}
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text("Erreur : $errorMsg"),
+          content: Text(userProvider.errorMessage ?? "Erreur inconnue"),
           backgroundColor: Colors.redAccent,
         ),
       );
@@ -71,6 +54,7 @@ class _RegisterPageState extends State<RegisterPage> {
 
   @override
   Widget build(BuildContext context) {
+    final userProvider = Provider.of<UserProvider>(context);
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -87,7 +71,6 @@ class _RegisterPageState extends State<RegisterPage> {
               ),
               const SizedBox(height: 30),
 
-              // Champs du formulaire
               TextField(
                 controller: _nameController,
                 decoration: _input("Nom"),
@@ -120,18 +103,17 @@ class _RegisterPageState extends State<RegisterPage> {
               ),
               const SizedBox(height: 25),
 
-              // Bouton S'inscrire
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _isLoading ? null : _register,
+                  onPressed: userProvider.isLoading ? null : _register,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.black,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: _isLoading
+                  child: userProvider.isLoading
                       ? const CircularProgressIndicator(color: Colors.white)
                       : const Text(
                     "S'inscrire",

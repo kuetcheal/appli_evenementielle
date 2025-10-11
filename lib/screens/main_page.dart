@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'home_page.dart';
-import 'authentification/login_page.dart';
 import 'evenement/list_event_page.dart';
-
+import 'profile/profile_page.dart'; // ✅ chemin corrigé
 
 class MainPage extends StatefulWidget {
   const MainPage({Key? key}) : super(key: key);
@@ -16,25 +15,25 @@ class _MainPageState extends State<MainPage> {
 
   // Pages associées à chaque onglet
   final List<Widget> _pages = const [
-    HomePage(),                                  // Découvrir
-    Center(child: Text("Plan (à venir)")),       // Plan
-    ListEventPage(),
-    LoginPage(),                                 // Profil = Connexion
+    HomePage(),                                // Découvrir
+    Center(child: Text("Plan (à venir)")),     // Plan
+    ListEventPage(),                           // Événements
+    ProfilePage(),                              // ✅ Profil dynamique
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      extendBody: true, // permet au contenu de passer sous la nav pour un effet flottant
+      extendBody: true, // effet flottant de la barre
       body: _pages[_currentIndex],
 
-      // ---- Bottom bar custom avec badge home décoratif au centre
+      // ---- Barre de navigation inférieure ----
       bottomNavigationBar: Padding(
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
         child: Stack(
           clipBehavior: Clip.none,
           children: [
-            // La barre arrondie avec shadow
+            // ---- Conteneur de la barre ----
             Container(
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -79,9 +78,9 @@ class _MainPageState extends State<MainPage> {
               ),
             ),
 
-            // Badge Home décoratif (au centre, au-dessus de la barre)
+            // ---- Badge Home décoratif (au centre, surélevé) ----
             Positioned(
-              top: -24, // remonte au-dessus de la barre
+              top: -24,
               left: 0,
               right: 0,
               child: Center(child: _homeBadge()),
@@ -92,7 +91,7 @@ class _MainPageState extends State<MainPage> {
     );
   }
 
-  // Icône home décorative avec glow violet (non interactive)
+  // ---- Icône centrale (home) ----
   Widget _homeBadge() {
     return Container(
       width: 56,
@@ -109,7 +108,7 @@ class _MainPageState extends State<MainPage> {
           BoxShadow(
             color: Colors.white.withOpacity(0.9),
             blurRadius: 0,
-            spreadRadius: -4, // fin liseré clair autour
+            spreadRadius: -4, // halo clair
           ),
         ],
       ),
