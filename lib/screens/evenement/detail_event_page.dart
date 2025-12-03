@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../paiement/ticket_webview_page.dart';
 
 class DetailEventPage extends StatelessWidget {
   final Map<String, dynamic> event;
@@ -10,11 +11,12 @@ class DetailEventPage extends StatelessWidget {
     final String title = event["title"] ?? "Titre de l'évènement";
     final String imagePath = event["image"] ?? "assets/concert.png";
     final String dateMain = event["dateMain"] ?? "28 Avril 2026";
-    final String dateRange =
-        event["timeRange"] ?? "Mercredi, 4:00PM - 5:30PM"; // fallback
-    final String locationTitle = event["locationTitle"] ?? (event["location"] ?? "Sud de France Arena");
+    final String dateRange = event["timeRange"] ?? "Mercredi, 4:00PM - 5:30PM";
+    final String locationTitle =
+        event["locationTitle"] ?? (event["location"] ?? "Sud de France Arena");
     final String locationAddress =
         event["address"] ?? "36 parc expo, 34090, Montpellier";
+    final String? ticketUrl = event["ticket_url"]; // ✅ URL dynamique
 
     return Scaffold(
       body: SingleChildScrollView(
@@ -24,7 +26,6 @@ class DetailEventPage extends StatelessWidget {
             Stack(
               clipBehavior: Clip.none,
               children: [
-                // Image avec coins arrondis en bas
                 ClipRRect(
                   borderRadius: const BorderRadius.only(
                     bottomLeft: Radius.circular(24),
@@ -38,7 +39,7 @@ class DetailEventPage extends StatelessWidget {
                   ),
                 ),
 
-                // Bouton retour (en haut à gauche)
+                // --- Bouton retour ---
                 Positioned(
                   top: 44,
                   left: 16,
@@ -51,7 +52,7 @@ class DetailEventPage extends StatelessWidget {
                   ),
                 ),
 
-                // Bouton favori (en haut à droite)
+                // --- Bouton favori ---
                 Positioned(
                   top: 44,
                   right: 16,
@@ -65,13 +66,13 @@ class DetailEventPage extends StatelessWidget {
                   ),
                 ),
 
-                // PILLS "Détails de l'évènement"
+                // --- Étiquette ---
                 Positioned(
                   top: 92,
                   left: 64,
                   child: Container(
-                    padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(
                       color: Colors.black.withOpacity(0.35),
                       borderRadius: BorderRadius.circular(20),
@@ -94,7 +95,7 @@ class DetailEventPage extends StatelessWidget {
                   ),
                 ),
 
-                // CARD flottant : Avatars + "+20 Going" + Invite
+                // --- CARD flottante ---
                 Positioned(
                   bottom: -28,
                   left: 24,
@@ -115,7 +116,6 @@ class DetailEventPage extends StatelessWidget {
                     ),
                     child: Row(
                       children: [
-                        // Avatars empilés
                         SizedBox(
                           width: 84,
                           height: 34,
@@ -129,8 +129,6 @@ class DetailEventPage extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 6),
-
-                        // +20 Going (petit pill)
                         Container(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 10, vertical: 6),
@@ -141,14 +139,6 @@ class DetailEventPage extends StatelessWidget {
                               end: Alignment.bottomRight,
                               colors: [Color(0xFF7AA3FF), Color(0xFF6C63FF)],
                             ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFF6C63FF)
-                                    .withOpacity(0.25),
-                                blurRadius: 10,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
                           ),
                           child: const Text(
                             "+20 Going",
@@ -159,10 +149,7 @@ class DetailEventPage extends StatelessWidget {
                             ),
                           ),
                         ),
-
                         const Spacer(),
-
-                        // Bouton Invite (petit pill)
                         TextButton(
                           onPressed: () {},
                           style: TextButton.styleFrom(
@@ -196,7 +183,6 @@ class DetailEventPage extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Titre
                   Text(
                     title,
                     style: const TextStyle(
@@ -207,7 +193,6 @@ class DetailEventPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
 
-                  // Date
                   _InfoRow(
                     icon: Icons.calendar_today,
                     iconBg: const Color(0xFF6C63FF),
@@ -216,7 +201,6 @@ class DetailEventPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 14),
 
-                  // Lieu
                   _InfoRow(
                     icon: Icons.location_on,
                     iconBg: const Color(0xFF5AC8FA),
@@ -226,7 +210,6 @@ class DetailEventPage extends StatelessWidget {
 
                   const SizedBox(height: 26),
 
-                  // A propos
                   const Text(
                     "À propos de l’évènement",
                     style: TextStyle(
@@ -248,13 +231,31 @@ class DetailEventPage extends StatelessWidget {
 
                   const SizedBox(height: 30),
 
-                  // CTA "Achetez votre ticket" (dégradé)
+                  // ✅ BOUTON D’ACHAT — redirige vers la billetterie
                   SizedBox(
                     width: double.infinity,
                     height: 56,
                     child: InkWell(
                       borderRadius: BorderRadius.circular(18),
-                      onTap: () {},
+                      onTap: () {
+                        if (ticketUrl != null && ticketUrl.isNotEmpty) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  TicketWebViewPage(url: ticketUrl),
+                            ),
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                "Aucun lien de billetterie disponible pour cet évènement.",
+                              ),
+                            ),
+                          );
+                        }
+                      },
                       child: Ink(
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(18),
@@ -265,8 +266,7 @@ class DetailEventPage extends StatelessWidget {
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color:
-                              const Color(0xFF6C63FF).withOpacity(0.35),
+                              color: Color(0xFF6C63FF).withOpacity(0.35),
                               blurRadius: 18,
                               offset: const Offset(0, 8),
                             ),
@@ -378,7 +378,6 @@ class _BulletLine extends StatelessWidget {
   }
 }
 
-// Petit avatar rond avec chevauchement (A, B, C par défaut)
 class _AvatarDot extends StatelessWidget {
   final double offset;
   final String label;

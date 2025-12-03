@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../../providers/user_provider.dart';
+import 'edit_password_page.dart';
 
 class ForgetPasswordPage extends StatefulWidget {
   const ForgetPasswordPage({super.key});
@@ -8,11 +11,45 @@ class ForgetPasswordPage extends StatefulWidget {
 }
 
 class _ForgetPasswordPageState extends State<ForgetPasswordPage> {
-  int _selectedIndex = 0; // 0 = Email, 1 = Phone
-  final TextEditingController _inputController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+
+  Future<void> _sendResetEmail() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+
+    final success = await userProvider.forgotPassword(
+      mail: _emailController.text.trim(),
+    );
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Un e-mail de réinitialisation a été envoyé."),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) =>
+              EditPasswordPage(email: _emailController.text.trim()),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              userProvider.errorMessage ?? "Erreur lors de l’envoi de l’e-mail."),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final userProvider = Provider.of<UserProvider>(context);
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -24,17 +61,12 @@ class _ForgetPasswordPageState extends State<ForgetPasswordPage> {
               // Bouton retour
               IconButton(
                 icon: const Icon(Icons.arrow_back, color: Colors.black),
-                onPressed: () {
-                  Navigator.pop(context);
-                },
+                onPressed: () => Navigator.pop(context),
               ),
 
               // Logo
               Center(
-                child: Image.asset(
-                  "assets/logo-event.png",
-                  height: 90,
-                ),
+                child: Image.asset("assets/logo-event.png", height: 90),
               ),
               const SizedBox(height: 30),
 
@@ -44,156 +76,64 @@ class _ForgetPasswordPageState extends State<ForgetPasswordPage> {
               ),
               const SizedBox(height: 10),
               const Text(
-                "Par quel moyen, voulez-vous réinitialiser votre mot de passe ?",
+                "Entrez votre adresse e-mail pour recevoir un lien de réinitialisation.",
                 style: TextStyle(color: Colors.black54, fontSize: 14),
               ),
-              const SizedBox(height: 20),
-
-              // ✅ Onglets Email / Téléphone
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade200,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _selectedIndex = 0;
-                            _inputController.clear();
-                          });
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          decoration: BoxDecoration(
-                            color: _selectedIndex == 0
-                                ? Colors.white
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: _selectedIndex == 0
-                                  ? Colors.blueAccent
-                                  : Colors.transparent,
-                            ),
-                          ),
-                          child: Center(
-                            child: Text(
-                              "Email",
-                              style: TextStyle(
-                                color: _selectedIndex == 0
-                                    ? Colors.blueAccent
-                                    : Colors.black54,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _selectedIndex = 1;
-                            _inputController.clear();
-                          });
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          decoration: BoxDecoration(
-                            color: _selectedIndex == 1
-                                ? Colors.white
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: _selectedIndex == 1
-                                  ? Colors.blueAccent
-                                  : Colors.transparent,
-                            ),
-                          ),
-                          child: Center(
-                            child: Text(
-                              "Numéro de téléphone",
-                              style: TextStyle(
-                                color: _selectedIndex == 1
-                                    ? Colors.blueAccent
-                                    : Colors.black54,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
               const SizedBox(height: 30),
 
-              // ✅ Champ Email ou Téléphone selon choix
+              // Champ Email
               TextField(
-                controller: _inputController,
-                keyboardType: _selectedIndex == 0
-                    ? TextInputType.emailAddress
-                    : TextInputType.phone,
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
                 decoration: InputDecoration(
-                  labelText:
-                  _selectedIndex == 0 ? "Entrer votre adresse email" : "Entrer votre numéro de téléphone",
+                  labelText: "Entrer votre adresse e-mail",
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 15, vertical: 18),
+                  contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 15, vertical: 18),
                 ),
               ),
-
               const SizedBox(height: 30),
 
-              // ✅ Bouton Send code
+              // Bouton Envoyer
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
+                  onPressed: userProvider.isLoading ? null : _sendResetEmail,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.black,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                        borderRadius: BorderRadius.circular(12)),
                   ),
-                  onPressed: () {
-                    // Action envoyer le code
-                  },
-                  child: const Text(
-                    "Send code",
+                  child: userProvider.isLoading
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text(
+                    "Envoyer le lien",
                     style: TextStyle(fontSize: 16, color: Colors.white),
                   ),
                 ),
               ),
 
-              const SizedBox(height: 30),
+              const SizedBox(height: 40),
 
-              // ✅ Lien bas
+              // Lien retour à la connexion
               Center(
                 child: GestureDetector(
-                  onTap: () {
-                    // Redirection vers Register
-                    Navigator.pushNamed(context, "/register");
-                  },
+                  onTap: () => Navigator.pushNamed(context, "/login"),
                   child: const Text.rich(
                     TextSpan(
-                      text: "Don't have an Account? ",
+                      text: "Vous souvenez-vous de votre mot de passe ? ",
                       style: TextStyle(color: Colors.black54),
                       children: [
                         TextSpan(
-                          text: "Create Account",
+                          text: "Se connecter",
                           style: TextStyle(
                             color: Colors.blueAccent,
                             fontWeight: FontWeight.bold,
                           ),
-                        )
+                        ),
                       ],
                     ),
                   ),

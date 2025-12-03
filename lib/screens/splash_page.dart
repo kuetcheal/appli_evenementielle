@@ -11,23 +11,25 @@ class SplashPage extends StatefulWidget {
 
 class _SplashPageState extends State<SplashPage>
     with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _animation;
+  late Timer _timer;
+  int _activeDot = 0; // index du point actif
+  final int _dotCount = 5; // nombre de points
+  final Duration _dotDuration = const Duration(milliseconds: 500); // vitesse animation
 
   @override
   void initState() {
     super.initState();
 
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    )..repeat();
-
-    _animation =
-        CurvedAnimation(parent: _controller, curve: Curves.easeInOut);
+    // Animation des points
+    _timer = Timer.periodic(_dotDuration, (timer) {
+      setState(() {
+        _activeDot = (_activeDot + 1) % _dotCount;
+      });
+    });
 
     // Après 10 secondes, redirige vers la page Login
     Timer(const Duration(seconds: 10), () {
+      _timer.cancel();
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const LoginPage()),
@@ -37,7 +39,7 @@ class _SplashPageState extends State<SplashPage>
 
   @override
   void dispose() {
-    _controller.dispose();
+    _timer.cancel();
     super.dispose();
   }
 
@@ -45,46 +47,61 @@ class _SplashPageState extends State<SplashPage>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Logo animé
-            RotationTransition(
-              turns: _animation,
-              child: Image.asset(
-                "assets/logo-event.png", // ton logo
-                height: 100,
+      body: SafeArea(
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // --- Logo (fixe maintenant) ---
+              Image.asset(
+                "assets/logo-event.png",
+                height: 120,
               ),
-            ),
-            const SizedBox(height: 20),
 
-            // Texte de bienvenue
-            const Text(
-              "Welcome to you",
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
+              const SizedBox(height: 50),
+
+              // --- Texte d’accueil ---
+              const Text(
+                "Welcome to you",
+                style: TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
               ),
-            ),
 
-            const SizedBox(height: 30),
+              const SizedBox(height: 40),
 
-            // Image ajoutée
-            Image.asset(
-              "assets/bienvenu.png", // place ton image ici
-              height: 180,
-            ),
+              // --- Image d’illustration ---
+              Image.asset(
+                "assets/bienvenu.png",
+                height: 250,
+                fit: BoxFit.contain,
+              ),
 
-            const SizedBox(height: 40),
+              const SizedBox(height: 60),
 
-            // Indicateur de chargement
-            const CircularProgressIndicator(
-              color: Colors.blueAccent,
-              strokeWidth: 2.5,
-            ),
-          ],
+              // --- Animation en pointillés ---
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(_dotCount, (index) {
+                  bool isActive = index == _activeDot;
+                  return AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    margin: const EdgeInsets.symmetric(horizontal: 6),
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: isActive ? const Color(0xFFB8860B) : Colors.grey.shade300,
+                      shape: BoxShape.circle,
+                    ),
+                  );
+                }),
+              ),
+
+              const SizedBox(height: 60),
+            ],
+          ),
         ),
       ),
     );

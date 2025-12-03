@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../providers/user_provider.dart';
-import 'edit_profile_page.dart'; // ✅ import vers la page d'édition du profil
-import '../authentification/login_page.dart';
 
+// ✅ Import des pages liées
+import 'edit_profile_page.dart';
+import '../authentification/login_page.dart';
+import 'partenaire_page.dart';
+import 'parametre_page.dart';
+import 'service_page.dart';
+import 'contact_page.dart';
+import 'favoris_page.dart';
+import 'aide_page.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
@@ -49,7 +56,7 @@ class ProfilePage extends StatelessWidget {
               Expanded(
                 child: ListView(
                   children: [
-                    // ✅ Redirection vers EditProfilePage
+                    // ✅ Edit Profile
                     _buildMenuItem(
                       context,
                       Icons.edit,
@@ -58,28 +65,113 @@ class ProfilePage extends StatelessWidget {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                              builder: (context) => const EditProfilePage()),
+                            builder: (context) => const EditProfilePage(),
+                          ),
                         );
                       },
                     ),
 
-                    _buildMenuItem(context, Icons.bookmark_border, "Mes favoris"),
-                    _buildMenuItem(context, Icons.store_mall_directory_outlined,
-                        "Nos services",
-                        crown: true),
+                    // ✅ Favoris
                     _buildMenuItem(
-                        context, Icons.settings_outlined, "Paramètres"),
-                    _buildMenuItem(
-                        context, Icons.people_alt_outlined, "Partenaires"),
-                    _buildMenuItem(
-                        context, Icons.mail_outline, "Contactez-nous"),
-                    _buildMenuItem(context, Icons.help_outline, "Aide & FAQs"),
+                      context,
+                      Icons.bookmark_border,
+                      "Mes favoris",
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const FavorisPage(),
+                          ),
+                        );
+                      },
+                    ),
 
-                    // ✅ Popup de déconnexion
-                    _buildMenuItem(context, Icons.logout, "Déconnexion",
-                        color: Colors.redAccent, onTap: () {
-                          _showLogoutDialog(context, userProvider);
-                        }),
+                    // ✅ Services
+                    _buildMenuItem(
+                      context,
+                      Icons.store_mall_directory_outlined,
+                      "Nos services",
+                      crown: true,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const ServicePage(),
+                          ),
+                        );
+                      },
+                    ),
+
+                    // ✅ Paramètres
+                    _buildMenuItem(
+                      context,
+                      Icons.settings_outlined,
+                      "Paramètres",
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const ParametrePage(),
+                          ),
+                        );
+                      },
+                    ),
+
+                    // ✅ Partenaires
+                    _buildMenuItem(
+                      context,
+                      Icons.people_alt_outlined,
+                      "Partenaires",
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const PartenairePage(),
+                          ),
+                        );
+                      },
+                    ),
+
+                    // ✅ Contact
+                    _buildMenuItem(
+                      context,
+                      Icons.mail_outline,
+                      "Contactez-nous",
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const ContactPage(),
+                          ),
+                        );
+                      },
+                    ),
+
+                    // ✅ Aide & FAQ
+                    _buildMenuItem(
+                      context,
+                      Icons.help_outline,
+                      "Aide & FAQs",
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const AidePage(),
+                          ),
+                        );
+                      },
+                    ),
+
+                    // ✅ Déconnexion
+                    _buildMenuItem(
+                      context,
+                      Icons.logout,
+                      "Déconnexion",
+                      color: Colors.redAccent,
+                      onTap: () {
+                        _showLogoutDialog(context, userProvider);
+                      },
+                    ),
                   ],
                 ),
               ),
@@ -162,17 +254,15 @@ class ProfilePage extends StatelessWidget {
                     borderRadius: BorderRadius.circular(10)),
               ),
               onPressed: () async {
-                Navigator.pop(context); // Ferme la popup
+                Navigator.pop(context);
                 await userProvider.logout();
 
-                // ✅ Redirige vers la page de connexion
                 Navigator.pushAndRemoveUntil(
                   context,
                   MaterialPageRoute(builder: (context) => const LoginPage()),
                       (route) => false,
                 );
 
-                // ✅ Message de confirmation
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text("Déconnexion réussie ✅"),

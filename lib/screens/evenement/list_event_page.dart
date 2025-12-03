@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart'; // ✅ Pour le formatage des dates
 import '../../providers/events_provider.dart';
 import 'detail_event_page.dart';
 
@@ -14,6 +15,7 @@ class _ListEventPageState extends State<ListEventPage> {
   @override
   void initState() {
     super.initState();
+    // ✅ Chargement automatique des événements dès l’ouverture de la page
     Future.microtask(() =>
         Provider.of<EventsProvider>(context, listen: false).fetchEvents());
   }
@@ -35,6 +37,8 @@ class _ListEventPageState extends State<ListEventPage> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
+
+      // ✅ Corps de la page
       body: provider.isLoading
           ? const Center(child: CircularProgressIndicator())
           : provider.error != null
@@ -49,6 +53,25 @@ class _ListEventPageState extends State<ListEventPage> {
         itemCount: provider.events.length,
         itemBuilder: (context, index) {
           final event = provider.events[index];
+
+          // --- Formatage de la date et de l’heure ---
+          DateTime? parsedDate;
+          String formattedDateTime = "";
+
+          try {
+            // On combine date et heure venant de l'API
+            final fullDateTime =
+                "${event['date_event']} ${event['time_event']}";
+            parsedDate = DateTime.parse(fullDateTime);
+
+            // ✅ Format français : "Mer, 28 avr • 17:30"
+            formattedDateTime =
+            "${DateFormat('EEE d MMM', 'fr_FR').format(parsedDate)} • ${DateFormat('HH:mm', 'fr_FR').format(parsedDate)}";
+          } catch (e) {
+            // En cas d'erreur, on garde la version brute
+            formattedDateTime =
+            "${event['date_event']} • ${event['time_event']}";
+          }
 
           return Container(
             margin: const EdgeInsets.only(bottom: 16),
@@ -69,7 +92,7 @@ class _ListEventPageState extends State<ListEventPage> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // ✅ IMAGE
+                  // ✅ IMAGE DE L'ÉVÉNEMENT
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: event["image_url"] != null
@@ -78,7 +101,8 @@ class _ListEventPageState extends State<ListEventPage> {
                       width: 90,
                       height: 90,
                       fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) =>
+                      errorBuilder:
+                          (context, error, stackTrace) =>
                           Image.asset(
                             "assets/concert.png",
                             width: 90,
@@ -93,15 +117,17 @@ class _ListEventPageState extends State<ListEventPage> {
                       fit: BoxFit.cover,
                     ),
                   ),
+
                   const SizedBox(width: 12),
 
-                  // ✅ TEXTE
+                  // ✅ INFORMATIONS TEXTE
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // Date et heure formatées
                         Text(
-                          "${event['date_event']} • ${event['time_event']}",
+                          formattedDateTime,
                           style: const TextStyle(
                             fontSize: 13,
                             color: Colors.purple,
@@ -109,6 +135,8 @@ class _ListEventPageState extends State<ListEventPage> {
                           ),
                         ),
                         const SizedBox(height: 6),
+
+                        // Titre de l’événement
                         Text(
                           event["title"] ?? "Sans titre",
                           style: const TextStyle(
@@ -117,6 +145,8 @@ class _ListEventPageState extends State<ListEventPage> {
                           ),
                         ),
                         const SizedBox(height: 6),
+
+                        // Localisation
                         Row(
                           children: [
                             const Icon(Icons.location_on,
@@ -124,7 +154,7 @@ class _ListEventPageState extends State<ListEventPage> {
                             const SizedBox(width: 4),
                             Expanded(
                               child: Text(
-                                "${event['location'] ?? ''}, ${event['city'] ?? ''}",
+                                "${event['location'] ?? ''}${event['city'] != null ? ', ${event['city']}' : ''}",
                                 style: const TextStyle(
                                   fontSize: 13,
                                   color: Colors.grey,
@@ -138,10 +168,11 @@ class _ListEventPageState extends State<ListEventPage> {
                     ),
                   ),
 
-                  // ✅ ACTION
+                  // ✅ Actions (menu + détails)
                   Column(
                     children: [
-                      const Icon(Icons.more_horiz, color: Colors.grey),
+                      const Icon(Icons.more_horiz,
+                          color: Colors.grey),
                       TextButton(
                         onPressed: () {
                           Navigator.push(

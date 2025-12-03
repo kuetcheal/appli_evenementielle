@@ -22,9 +22,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
     super.initState();
     final user = Provider.of<UserProvider>(context, listen: false).user;
     if (user != null) {
-      _nameController.text = user["nom"] ?? "";
-      _mailController.text = user["mail"] ?? "";
-      _phoneController.text = user["numero_telephone"] ?? "";
+      _nameController.text = (user["nom"] ?? "").toString();
+      _mailController.text = (user["mail"] ?? "").toString();
+      _phoneController.text = (user["numero_telephone"] ?? "").toString();
     }
   }
 

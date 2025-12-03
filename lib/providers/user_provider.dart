@@ -14,7 +14,8 @@ class UserProvider extends ChangeNotifier {
 
   static const String baseUrl = "http://192.168.1.53:3000/api/auth";
 
-  // ✅ --- MÉTHODE AJOUTÉE ---
+
+  //  --- MÉTHODE AJOUTÉE ---
   void setUser(Map<String, dynamic> updatedUser) {
     _user = updatedUser;
     notifyListeners();
@@ -44,7 +45,7 @@ class UserProvider extends ChangeNotifier {
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        return true; // ✅ OK
+        return true;
       } else {
         final decoded = jsonDecode(response.body);
         _errorMessage = decoded['error'] ?? 'Erreur inconnue';
@@ -80,7 +81,6 @@ class UserProvider extends ChangeNotifier {
         final token = data["token"];
         _user = data["user"];
 
-        // ✅ Enregistre le token localement
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString("token", token);
 
@@ -99,7 +99,7 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
-  // ---- VÉRIFICATION EMAIL (Code à 6 chiffres) ----
+  // ---- VÉRIFICATION EMAIL ----
   Future<bool> verifyEmail({
     required String mail,
     required String code,
@@ -120,6 +120,36 @@ class UserProvider extends ChangeNotifier {
       } else {
         final decoded = jsonDecode(response.body);
         _errorMessage = decoded['error'] ?? "Code invalide";
+        return false;
+      }
+    } catch (e) {
+      _errorMessage = "Erreur réseau : $e";
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // ---- 🔹 MOT DE PASSE OUBLIÉ ----
+  Future<bool> forgotPassword({required String mail}) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final response = await http.post(
+        Uri.parse("$baseUrl/forgot-password"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"mail": mail}),
+      );
+
+      if (response.statusCode == 200) {
+        // Réponse OK : e-mail de réinitialisation envoyé
+        return true;
+      } else {
+        final decoded = jsonDecode(response.body);
+        _errorMessage = decoded['error'] ?? "Impossible d’envoyer l’e-mail.";
         return false;
       }
     } catch (e) {
