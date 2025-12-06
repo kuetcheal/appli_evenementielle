@@ -27,6 +27,8 @@ class UserProvider extends ChangeNotifier {
     required String mail,
     required String numeroTelephone,
     required String password,
+    required String adresse,
+    required String codePostal,
   }) async {
     _isLoading = true;
     _errorMessage = null;
@@ -41,6 +43,8 @@ class UserProvider extends ChangeNotifier {
           "mail": mail,
           "numero_telephone": numeroTelephone,
           "password": password,
+          "Adresse": adresse,
+          "code_postal": codePostal,
         }),
       );
 

@@ -14,6 +14,8 @@ class _RegisterPageState extends State<RegisterPage> {
   bool _obscurePassword = true;
   final _nameController = TextEditingController();
   final _mailController = TextEditingController();
+  final _adressController = TextEditingController();
+  final _postalController = TextEditingController();
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
 
@@ -23,6 +25,8 @@ class _RegisterPageState extends State<RegisterPage> {
     final success = await userProvider.register(
       nom: _nameController.text.trim(),
       mail: _mailController.text.trim(),
+      adresse: _adressController.text.trim(),
+      codePostal: _postalController.text.trim(),
       numeroTelephone: _phoneController.text.trim(),
       password: _passwordController.text,
     );
@@ -79,6 +83,16 @@ class _RegisterPageState extends State<RegisterPage> {
               TextField(
                 controller: _mailController,
                 decoration: _input("E-mail"),
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: _adressController,
+                decoration: _input("Adresse"),
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: _postalController,
+                decoration: _input("Code Postal"),
               ),
               const SizedBox(height: 20),
               TextField(

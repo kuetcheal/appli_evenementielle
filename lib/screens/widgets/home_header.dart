@@ -1,11 +1,19 @@
 // lib/screens/widgets/home_header.dart
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../providers/user_provider.dart';
 
 class HomeHeader extends StatelessWidget {
   const HomeHeader({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final userProvider = Provider.of<UserProvider>(context);
+
+    // On récupère les champs stockés lors de la connexion
+    final adresse = userProvider.user?["Adresse"] ?? "Adresse inconnue";
+    final codePostal = userProvider.user?["code_postal"] ?? "";
+
     return Container(
       height: 210,
       decoration: const BoxDecoration(
@@ -22,26 +30,33 @@ class HomeHeader extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Icon(Icons.notifications, color: Colors.white),
+
               Column(
-                children: const [
-                  Text(
-                    "Current Location",
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const Text(
+                    "Votre adresse",
                     style: TextStyle(color: Colors.white70, fontSize: 12),
                   ),
                   SizedBox(height: 2),
+
+                  // 🔥 Voici l'adresse réelle de l'utilisateur
                   Text(
-                    "34000, Montpellier",
-                    style: TextStyle(
+                    "$adresse, $codePostal",
+                    style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
                     ),
+                    textAlign: TextAlign.center,
                   ),
                 ],
               ),
+
               const Icon(Icons.arrow_drop_down, color: Colors.white),
             ],
           ),
+
           const SizedBox(height: 12),
 
           // Barre de recherche + bouton filtres
@@ -73,9 +88,7 @@ class HomeHeader extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                onPressed: () {
-                  // TODO: ouvrir la page de filtres
-                },
+                onPressed: () {},
                 icon: const Icon(Icons.filter_list, color: Colors.white),
                 label: const Text(
                   "Filtres",
