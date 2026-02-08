@@ -8,9 +8,64 @@ class EventCard extends StatelessWidget {
 
   const EventCard({super.key, required this.event});
 
+  bool _isValidHttpUrl(dynamic value) {
+    if (value == null) return false;
+    final s = value.toString().trim();
+    if (s.isEmpty) return false;
+    if (s.toLowerCase() == "null") return false;
+    return s.startsWith("http://") || s.startsWith("https://");
+  }
+
+  Widget _eventImage(dynamic imageUrl) {
+    final hasNetworkImage = _isValidHttpUrl(imageUrl);
+
+    if (!hasNetworkImage) {
+      return Image.asset(
+        "assets/concert.png",
+        height: 130,
+        width: double.infinity,
+        fit: BoxFit.cover,
+      );
+    }
+
+    return Image.network(
+      imageUrl.toString(),
+      height: 130,
+      width: double.infinity,
+      fit: BoxFit.cover,
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return SizedBox(
+          height: 130,
+          width: double.infinity,
+          child: Center(
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              value: loadingProgress.expectedTotalBytes != null
+                  ? loadingProgress.cumulativeBytesLoaded /
+                  (loadingProgress.expectedTotalBytes!)
+                  : null,
+            ),
+          ),
+        );
+      },
+      errorBuilder: (context, error, stackTrace) {
+        return Image.asset(
+          "assets/concert.png",
+          height: 130,
+          width: double.infinity,
+          fit: BoxFit.cover,
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final eventsProvider = Provider.of<EventsProvider>(context, listen: false);
+
+    // ✅ on prend la vraie clé renvoyée par l’API (Cloudinary)
+    final dynamic imageUrl = event["image_url"];
 
     return Container(
       height: 280,
@@ -29,13 +84,8 @@ class EventCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Image brute
-          Image.asset(
-            "assets/concert.png",
-            height: 130,
-            width: double.infinity,
-            fit: BoxFit.cover,
-          ),
+          // ✅ Image Cloudinary (ou fallback)
+          _eventImage(imageUrl),
 
           Padding(
             padding: const EdgeInsets.all(10.0),
@@ -43,7 +93,7 @@ class EventCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  event["titre"] ?? event["title"] ?? "Sans titre",
+                  (event["titre"] ?? event["title"] ?? "Sans titre").toString(),
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
@@ -117,9 +167,8 @@ class EventCard extends StatelessWidget {
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
-                        event["lieu"] ??
-                            event["location"] ??
-                            "Lieu non renseigné",
+                        (event["lieu"] ?? event["location"] ?? "Lieu non renseigné")
+                            .toString(),
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           color: Colors.black87,

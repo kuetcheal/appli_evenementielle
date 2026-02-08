@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart'; // ✅ Pour le formatage des dates
+import 'package:intl/intl.dart';
 import '../../providers/events_provider.dart';
 import 'detail_event_page.dart';
 
@@ -15,9 +15,63 @@ class _ListEventPageState extends State<ListEventPage> {
   @override
   void initState() {
     super.initState();
-    // ✅ Chargement automatique des événements dès l’ouverture de la page
     Future.microtask(() =>
         Provider.of<EventsProvider>(context, listen: false).fetchEvents());
+  }
+
+  // ✅ Utilitaire : détecter si image_url est une vraie URL http(s)
+  bool _isValidHttpUrl(dynamic value) {
+    if (value == null) return false;
+    final s = value.toString().trim();
+    if (s.isEmpty) return false;
+    if (s.toLowerCase() == "null") return false;
+    return s.startsWith("http://") || s.startsWith("https://");
+  }
+
+  Widget _eventImage(dynamic imageUrl) {
+    final hasNetworkImage = _isValidHttpUrl(imageUrl);
+
+    if (!hasNetworkImage) {
+      return Image.asset(
+        "assets/concert.png",
+        width: 90,
+        height: 90,
+        fit: BoxFit.cover,
+      );
+    }
+
+    return Image.network(
+      imageUrl.toString(),
+      width: 90,
+      height: 90,
+      fit: BoxFit.cover,
+      // ✅ Loader pendant le téléchargement
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return SizedBox(
+          width: 90,
+          height: 90,
+          child: Center(
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              value: loadingProgress.expectedTotalBytes != null
+                  ? loadingProgress.cumulativeBytesLoaded /
+                  (loadingProgress.expectedTotalBytes!)
+                  : null,
+            ),
+          ),
+        );
+      },
+      // ✅ Fallback si l’URL est invalide / erreur réseau
+      errorBuilder: (context, error, stackTrace) {
+        return Image.asset(
+          "assets/concert.png",
+          width: 90,
+          height: 90,
+          fit: BoxFit.cover,
+        );
+      },
+    );
   }
 
   @override
@@ -37,8 +91,6 @@ class _ListEventPageState extends State<ListEventPage> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-
-      // ✅ Corps de la page
       body: provider.isLoading
           ? const Center(child: CircularProgressIndicator())
           : provider.error != null
@@ -54,147 +106,125 @@ class _ListEventPageState extends State<ListEventPage> {
         itemBuilder: (context, index) {
           final event = provider.events[index];
 
-          // --- Formatage de la date et de l’heure ---
-          DateTime? parsedDate;
+          // --- Formatage date/heure ---
           String formattedDateTime = "";
-
           try {
-            // On combine date et heure venant de l'API
             final fullDateTime =
                 "${event['date_event']} ${event['time_event']}";
-            parsedDate = DateTime.parse(fullDateTime);
-
-            // ✅ Format français : "Mer, 28 avr • 17:30"
+            final parsedDate = DateTime.parse(fullDateTime);
             formattedDateTime =
             "${DateFormat('EEE d MMM', 'fr_FR').format(parsedDate)} • ${DateFormat('HH:mm', 'fr_FR').format(parsedDate)}";
           } catch (e) {
-            // En cas d'erreur, on garde la version brute
             formattedDateTime =
             "${event['date_event']} • ${event['time_event']}";
           }
 
-          return Container(
-            margin: const EdgeInsets.only(bottom: 16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.shade200,
-                  blurRadius: 6,
-                  spreadRadius: 2,
-                  offset: const Offset(0, 3),
+          return GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => DetailEventPage(event: event),
                 ),
-              ],
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(10.0),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // ✅ IMAGE DE L'ÉVÉNEMENT
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: event["image_url"] != null
-                        ? Image.network(
-                      event["image_url"],
-                      width: 90,
-                      height: 90,
-                      fit: BoxFit.cover,
-                      errorBuilder:
-                          (context, error, stackTrace) =>
-                          Image.asset(
-                            "assets/concert.png",
-                            width: 90,
-                            height: 90,
-                            fit: BoxFit.cover,
-                          ),
-                    )
-                        : Image.asset(
-                      "assets/concert.png",
-                      width: 90,
-                      height: 90,
-                      fit: BoxFit.cover,
-                    ),
+              );
+            },
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.shade200,
+                    blurRadius: 6,
+                    spreadRadius: 2,
+                    offset: const Offset(0, 3),
                   ),
+                ],
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(10.0),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ✅ IMAGE CLOUDINARY
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: _eventImage(event["image_url"]),
+                    ),
 
-                  const SizedBox(width: 12),
+                    const SizedBox(width: 12),
 
-                  // ✅ INFORMATIONS TEXTE
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Date et heure formatées
-                        Text(
-                          formattedDateTime,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: Colors.purple,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-
-                        // Titre de l’événement
-                        Text(
-                          event["title"] ?? "Sans titre",
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-
-                        // Localisation
-                        Row(
-                          children: [
-                            const Icon(Icons.location_on,
-                                size: 16, color: Colors.grey),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Text(
-                                "${event['location'] ?? ''}${event['city'] != null ? ', ${event['city']}' : ''}",
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  color: Colors.grey,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            formattedDateTime,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Colors.purple,
+                              fontWeight: FontWeight.bold,
                             ),
-                          ],
+                          ),
+                          const SizedBox(height: 6),
+
+                          Text(
+                            (event["title"] ?? "Sans titre").toString(),
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+
+                          Row(
+                            children: [
+                              const Icon(Icons.location_on,
+                                  size: 16, color: Colors.grey),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  "${event['location'] ?? ''}${event['city'] != null && event['city'].toString().isNotEmpty ? ', ${event['city']}' : ''}",
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.grey,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    Column(
+                      children: [
+                        const Icon(Icons.more_horiz, color: Colors.grey),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    DetailEventPage(event: event),
+                              ),
+                            );
+                          },
+                          child: const Text(
+                            "Détails",
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.blue,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                       ],
                     ),
-                  ),
-
-                  // ✅ Actions (menu + détails)
-                  Column(
-                    children: [
-                      const Icon(Icons.more_horiz,
-                          color: Colors.grey),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  DetailEventPage(event: event),
-                            ),
-                          );
-                        },
-                        child: const Text(
-                          "Détails",
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.blue,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           );

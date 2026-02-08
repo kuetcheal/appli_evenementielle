@@ -1,7 +1,8 @@
-// lib/models/providers/contact_provider.dart
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+
+import '../config/app_config.dart';
 
 class ContactProvider extends ChangeNotifier {
   bool _isLoading = false;
@@ -10,8 +11,8 @@ class ContactProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
-  // ⚠️ adapte l’IP à ton backend (même style que user_provider.dart)
-  static const String baseUrl = "http://192.168.1.53:3000/api/contact";
+  //  URL dynamique depuis .env
+  String get _endpoint => "${AppConfig.apiUrl}/api/contact";
 
   Future<bool> sendContact({
     required String nom,
@@ -24,7 +25,7 @@ class ContactProvider extends ChangeNotifier {
 
     try {
       final response = await http.post(
-        Uri.parse(baseUrl),
+        Uri.parse(_endpoint),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "nom": nom,
@@ -33,19 +34,25 @@ class ContactProvider extends ChangeNotifier {
         }),
       );
 
-      if (response.statusCode == 201) {
+      if (response.statusCode == 201 || response.statusCode == 200) {
         _isLoading = false;
         notifyListeners();
         return true;
       } else {
-        final data = jsonDecode(response.body);
-        _errorMessage = data["message"] ?? "Erreur inconnue";
+        // Par sécurité: parfois ce n'est pas du JSON
+        try {
+          final data = jsonDecode(response.body);
+          _errorMessage = data["message"] ?? data["error"] ?? "Erreur inconnue";
+        } catch (_) {
+          _errorMessage = "Erreur serveur : ${response.statusCode}";
+        }
+
         _isLoading = false;
         notifyListeners();
         return false;
       }
     } catch (e) {
-      _errorMessage = e.toString();
+      _errorMessage = "Erreur réseau : $e";
       _isLoading = false;
       notifyListeners();
       return false;

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 // Providers
 import 'providers/events_provider.dart';
@@ -19,8 +20,7 @@ import 'screens/splash_page.dart';
 import 'screens/paiement/paiement_page.dart';
 import 'screens/paiement/ticket_webview_page.dart';
 
-
-// ✅ Pages Profil
+//  Pages Profil
 import 'screens/profile/edit_profile_page.dart';
 import 'screens/profile/delete_profile_page.dart';
 import 'screens/profile/partenaire_page.dart';
@@ -30,7 +30,12 @@ import 'screens/profile/contact_page.dart';
 import 'screens/profile/favoris_page.dart';
 import 'screens/profile/aide_page.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  //  Charge le fichier .env
+  await dotenv.load(fileName: ".env");
+
   runApp(
     MultiProvider(
       providers: [
@@ -56,10 +61,10 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
       ),
 
-      // ✅ Page d’accueil au lancement
+      //  Page d’accueil au lancement
       initialRoute: "/splash",
 
-      // ✅ Définition de toutes les routes
+      // Définition de toutes les routes
       routes: {
         // --- Authentification ---
         "/splash": (context) => const SplashPage(),
@@ -75,7 +80,6 @@ class MyApp extends StatelessWidget {
         // --- paiement ---
         "/paiement": (context) => const PaiementPage(),
         "/ticket_webview": (context) => const TicketWebViewPage(url: ""),
-
 
         // --- Profil ---
         "/edit_profile": (context) => const EditProfilePage(),

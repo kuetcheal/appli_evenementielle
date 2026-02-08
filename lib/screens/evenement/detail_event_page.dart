@@ -6,23 +6,44 @@ class DetailEventPage extends StatelessWidget {
 
   const DetailEventPage({Key? key, required this.event}) : super(key: key);
 
+  bool _isValidHttpUrl(dynamic value) {
+    if (value == null) return false;
+    final s = value.toString().trim();
+    if (s.isEmpty) return false;
+    if (s.toLowerCase() == "null") return false;
+    return s.startsWith("http://") || s.startsWith("https://");
+  }
+
   @override
   Widget build(BuildContext context) {
-    final String title = event["title"] ?? "Titre de l'évènement";
-    final String imagePath = event["image"] ?? "assets/concert.png";
-    final String dateMain = event["dateMain"] ?? "28 Avril 2026";
-    final String dateRange = event["timeRange"] ?? "Mercredi, 4:00PM - 5:30PM";
+    final String title = (event["title"] ?? "Titre de l'évènement").toString();
+    final String description = (event["description"] ?? "").toString();
+
+    final String location = (event["location"] ?? "").toString();
+    final String city = (event["city"] ?? "").toString();
+
+    final String dateEvent = (event["date_event"] ?? "").toString();
+    final String timeEvent = (event["time_event"] ?? "").toString();
+
+    final String? ticketUrl = event["ticket_url"]?.toString();
+
+    // ✅ IMPORTANT : image_url venant de Cloudinary
+    final dynamic rawImageUrl = event["image_url"];
+    final bool hasNetworkImage = _isValidHttpUrl(rawImageUrl);
+    final String? imageUrl = hasNetworkImage ? rawImageUrl.toString() : null;
+
+    final String dateMain = dateEvent.isNotEmpty ? dateEvent : "Date inconnue";
+    final String dateRange = timeEvent.isNotEmpty ? timeEvent : "Heure inconnue";
+
     final String locationTitle =
-        event["locationTitle"] ?? (event["location"] ?? "Sud de France Arena");
+    location.isNotEmpty ? location : "Lieu non renseigné";
     final String locationAddress =
-        event["address"] ?? "36 parc expo, 34090, Montpellier";
-    final String? ticketUrl = event["ticket_url"]; // ✅ URL dynamique
+    city.isNotEmpty ? "$city, France" : "Ville non renseignée";
 
     return Scaffold(
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // ======= HERO + OVERLAYS =======
             Stack(
               clipBehavior: Clip.none,
               children: [
@@ -31,15 +52,44 @@ class DetailEventPage extends StatelessWidget {
                     bottomLeft: Radius.circular(24),
                     bottomRight: Radius.circular(24),
                   ),
-                  child: Image.asset(
-                    imagePath,
+                  child: imageUrl != null
+                      ? Image.network(
+                    imageUrl,
+                    height: 260,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return SizedBox(
+                        height: 260,
+                        width: double.infinity,
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            value: loadingProgress.expectedTotalBytes != null
+                                ? loadingProgress.cumulativeBytesLoaded /
+                                (loadingProgress.expectedTotalBytes!)
+                                : null,
+                          ),
+                        ),
+                      );
+                    },
+                    errorBuilder: (context, error, stackTrace) {
+                      return Image.asset(
+                        "assets/concert.png",
+                        height: 260,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                      );
+                    },
+                  )
+                      : Image.asset(
+                    "assets/concert.png",
                     height: 260,
                     width: double.infinity,
                     fit: BoxFit.cover,
                   ),
                 ),
 
-                // --- Bouton retour ---
                 Positioned(
                   top: 44,
                   left: 16,
@@ -52,27 +102,23 @@ class DetailEventPage extends StatelessWidget {
                   ),
                 ),
 
-                // --- Bouton favori ---
                 Positioned(
                   top: 44,
                   right: 16,
                   child: CircleAvatar(
                     backgroundColor: Colors.black.withOpacity(0.45),
                     child: IconButton(
-                      icon: const Icon(Icons.favorite_border,
-                          color: Colors.white),
+                      icon: const Icon(Icons.favorite_border, color: Colors.white),
                       onPressed: () {},
                     ),
                   ),
                 ),
 
-                // --- Étiquette ---
                 Positioned(
                   top: 92,
                   left: 64,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(
                       color: Colors.black.withOpacity(0.35),
                       borderRadius: BorderRadius.circular(20),
@@ -95,14 +141,12 @@ class DetailEventPage extends StatelessWidget {
                   ),
                 ),
 
-                // --- CARD flottante ---
                 Positioned(
                   bottom: -28,
                   left: 24,
                   right: 24,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 10),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(22),
@@ -130,8 +174,7 @@ class DetailEventPage extends StatelessWidget {
                         ),
                         const SizedBox(width: 6),
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(14),
                             gradient: const LinearGradient(
@@ -154,18 +197,15 @@ class DetailEventPage extends StatelessWidget {
                           onPressed: () {},
                           style: TextButton.styleFrom(
                             foregroundColor: const Color(0xFF6C63FF),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(14),
                             ),
-                            backgroundColor:
-                            const Color(0xFF6C63FF).withOpacity(0.12),
+                            backgroundColor: const Color(0xFF6C63FF).withOpacity(0.12),
                           ),
                           child: const Text(
                             "Invite",
-                            style: TextStyle(
-                                fontWeight: FontWeight.w700, fontSize: 12.5),
+                            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5),
                           ),
                         ),
                       ],
@@ -177,7 +217,6 @@ class DetailEventPage extends StatelessWidget {
 
             const SizedBox(height: 40),
 
-            // ======= CONTENU =======
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
@@ -219,19 +258,18 @@ class DetailEventPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
 
-                  const _BulletLine(
-                    text:
-                    "Danses traditionnelles géorgiennes en costumes colorés",
-                  ),
-                  const SizedBox(height: 8),
-                  const _BulletLine(
-                    text:
-                    "Concert live avec instruments traditionnels (pandouri, doudouk)",
-                  ),
+                  if (description.isNotEmpty)
+                    Text(
+                      description,
+                      style: const TextStyle(fontSize: 14.2, color: Colors.black87),
+                    )
+                  else
+                    const _BulletLine(
+                      text: "Aucune description fournie pour cet évènement.",
+                    ),
 
                   const SizedBox(height: 30),
 
-                  // ✅ BOUTON D’ACHAT — redirige vers la billetterie
                   SizedBox(
                     width: double.infinity,
                     height: 56,
@@ -242,8 +280,7 @@ class DetailEventPage extends StatelessWidget {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) =>
-                                  TicketWebViewPage(url: ticketUrl),
+                              builder: (context) => TicketWebViewPage(url: ticketUrl),
                             ),
                           );
                         } else {
@@ -285,8 +322,7 @@ class DetailEventPage extends StatelessWidget {
                                 ),
                               ),
                               SizedBox(width: 8),
-                              Icon(Icons.arrow_forward_rounded,
-                                  color: Colors.white),
+                              Icon(Icons.arrow_forward_rounded, color: Colors.white),
                             ],
                           ),
                         ),
@@ -304,8 +340,6 @@ class DetailEventPage extends StatelessWidget {
     );
   }
 }
-
-// ========= WIDGETS PRIVÉS =========
 
 class _InfoRow extends StatelessWidget {
   final IconData icon;
@@ -341,8 +375,7 @@ class _InfoRow extends StatelessWidget {
             children: [
               Text(
                 title,
-                style:
-                const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
               ),
               const SizedBox(height: 2),
               Text(
@@ -368,10 +401,7 @@ class _BulletLine extends StatelessWidget {
         const Icon(Icons.check_circle, color: Colors.green, size: 18),
         const SizedBox(width: 8),
         Expanded(
-          child: Text(
-            text,
-            style: const TextStyle(fontSize: 14.2),
-          ),
+          child: Text(text, style: const TextStyle(fontSize: 14.2)),
         ),
       ],
     );

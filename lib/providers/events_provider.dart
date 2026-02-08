@@ -2,8 +2,11 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
+import '../config/app_config.dart';
+
 class EventsProvider extends ChangeNotifier {
-  static const String _baseUrl = "http://192.168.1.53:3000";
+  //  base url depuis .env
+  final String _baseUrl = AppConfig.apiUrl;
 
   List<Map<String, dynamic>> _events = [];
   List<Map<String, dynamic>> _nearbyEvents = [];
@@ -24,7 +27,7 @@ class EventsProvider extends ChangeNotifier {
   String? get error => _error;
   String? get nearbyError => _nearbyError;
 
-  // ✅ Liste filtrée des favoris (pour la page "Mes favoris")
+  //  Liste filtrée des favoris (pour la page "Mes favoris")
   List<Map<String, dynamic>> get favorites =>
       _events.where((e) => (e["isFavorite"] ?? false) == true).toList();
 
@@ -113,29 +116,25 @@ class EventsProvider extends ChangeNotifier {
     }
   }
 
-  // 👍 Incrémenter un like
+  //  Incrémenter un like
   void likeEvent(int id) {
     final index = _events.indexWhere((e) => e["id"] == id);
     if (index == -1) return;
 
     _events[index]["likes"] = (_events[index]["likes"] ?? 0) + 1;
     notifyListeners();
-
-    // TODO: appel API pour sauvegarder en BDD si tu veux
   }
 
-  // 👎 Incrémenter un dislike
+  //  Incrémenter un dislike
   void dislikeEvent(int id) {
     final index = _events.indexWhere((e) => e["id"] == id);
     if (index == -1) return;
 
     _events[index]["dislikes"] = (_events[index]["dislikes"] ?? 0) + 1;
     notifyListeners();
-
-    // TODO: appel API pour sauvegarder en BDD si tu veux
   }
 
-  // ❤️ Ajouter / retirer des favoris
+  //  Ajouter / retirer des favoris
   void toggleFavorite(int id) {
     final index = _events.indexWhere((e) => e["id"] == id);
     if (index == -1) return;
@@ -143,7 +142,5 @@ class EventsProvider extends ChangeNotifier {
     final current = _events[index]["isFavorite"] ?? false;
     _events[index]["isFavorite"] = !current;
     notifyListeners();
-
-    // TODO: appel API pour sauver en BDD si nécessaire
   }
 }

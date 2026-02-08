@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../config/app_config.dart';
+
 class UserProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _errorMessage;
@@ -12,10 +14,10 @@ class UserProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   Map<String, dynamic>? get user => _user;
 
-  static const String baseUrl = "http://192.168.1.53:3000/api/auth";
+  // ✅ URL dynamique depuis .env
+  String get _baseUrl => "${AppConfig.apiUrl}/api/auth";
 
-
-  //  --- MÉTHODE AJOUTÉE ---
+  // --- MÉTHODE AJOUTÉE ---
   void setUser(Map<String, dynamic> updatedUser) {
     _user = updatedUser;
     notifyListeners();
@@ -36,7 +38,7 @@ class UserProvider extends ChangeNotifier {
 
     try {
       final response = await http.post(
-        Uri.parse("$baseUrl/register"),
+        Uri.parse("$_baseUrl/register"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "nom": nom,
@@ -51,8 +53,12 @@ class UserProvider extends ChangeNotifier {
       if (response.statusCode == 200 || response.statusCode == 201) {
         return true;
       } else {
-        final decoded = jsonDecode(response.body);
-        _errorMessage = decoded['error'] ?? 'Erreur inconnue';
+        try {
+          final decoded = jsonDecode(response.body);
+          _errorMessage = decoded['error'] ?? decoded['message'] ?? 'Erreur inconnue';
+        } catch (_) {
+          _errorMessage = "Erreur serveur : ${response.statusCode}";
+        }
         return false;
       }
     } catch (e) {
@@ -75,7 +81,7 @@ class UserProvider extends ChangeNotifier {
 
     try {
       final response = await http.post(
-        Uri.parse("$baseUrl/login"),
+        Uri.parse("$_baseUrl/login"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({"mail": mail, "password": password}),
       );
@@ -83,15 +89,23 @@ class UserProvider extends ChangeNotifier {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final token = data["token"];
-        _user = data["user"];
+        _user = (data["user"] is Map<String, dynamic>)
+            ? Map<String, dynamic>.from(data["user"])
+            : null;
 
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString("token", token);
+        if (token != null) {
+          await prefs.setString("token", token.toString());
+        }
 
         return true;
       } else {
-        final decoded = jsonDecode(response.body);
-        _errorMessage = decoded['error'] ?? "Erreur d'identifiants";
+        try {
+          final decoded = jsonDecode(response.body);
+          _errorMessage = decoded['error'] ?? decoded['message'] ?? "Erreur d'identifiants";
+        } catch (_) {
+          _errorMessage = "Erreur serveur : ${response.statusCode}";
+        }
         return false;
       }
     } catch (e) {
@@ -114,7 +128,7 @@ class UserProvider extends ChangeNotifier {
 
     try {
       final response = await http.post(
-        Uri.parse("$baseUrl/verify"),
+        Uri.parse("$_baseUrl/verify"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({"mail": mail, "code": code}),
       );
@@ -122,8 +136,12 @@ class UserProvider extends ChangeNotifier {
       if (response.statusCode == 200) {
         return true;
       } else {
-        final decoded = jsonDecode(response.body);
-        _errorMessage = decoded['error'] ?? "Code invalide";
+        try {
+          final decoded = jsonDecode(response.body);
+          _errorMessage = decoded['error'] ?? decoded['message'] ?? "Code invalide";
+        } catch (_) {
+          _errorMessage = "Erreur serveur : ${response.statusCode}";
+        }
         return false;
       }
     } catch (e) {
@@ -135,7 +153,7 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
-  // ---- 🔹 MOT DE PASSE OUBLIÉ ----
+  // ---- MOT DE PASSE OUBLIÉ ----
   Future<bool> forgotPassword({required String mail}) async {
     _isLoading = true;
     _errorMessage = null;
@@ -143,17 +161,20 @@ class UserProvider extends ChangeNotifier {
 
     try {
       final response = await http.post(
-        Uri.parse("$baseUrl/forgot-password"),
+        Uri.parse("$_baseUrl/forgot-password"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({"mail": mail}),
       );
 
       if (response.statusCode == 200) {
-        // Réponse OK : e-mail de réinitialisation envoyé
         return true;
       } else {
-        final decoded = jsonDecode(response.body);
-        _errorMessage = decoded['error'] ?? "Impossible d’envoyer l’e-mail.";
+        try {
+          final decoded = jsonDecode(response.body);
+          _errorMessage = decoded['error'] ?? decoded['message'] ?? "Impossible d’envoyer l’e-mail.";
+        } catch (_) {
+          _errorMessage = "Erreur serveur : ${response.statusCode}";
+        }
         return false;
       }
     } catch (e) {
