@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
 
 class EventsProvider extends ChangeNotifier {
-  //  base url depuis .env
+  // base url depuis .env
   final String _baseUrl = AppConfig.apiUrl;
 
   List<Map<String, dynamic>> _events = [];
@@ -17,6 +17,31 @@ class EventsProvider extends ChangeNotifier {
   String? _error;
   String? _nearbyError;
 
+  // ✅ filtre sélectionné (null = tous)
+  String? _selectedType;
+  String? get selectedType => _selectedType;
+
+  void setSelectedType(String? type) {
+    // toggle : si on reclique la même catégorie -> on reset
+    if (_selectedType == type) {
+      _selectedType = null;
+    } else {
+      _selectedType = type;
+    }
+    notifyListeners();
+  }
+
+  // ✅ liste filtrée selon event_type (minuscule)
+  List<Map<String, dynamic>> get filteredEvents {
+    if (_selectedType == null) return _events;
+
+    final wanted = _selectedType!.toLowerCase().trim();
+    return _events.where((e) {
+      final t = (e["event_type"] ?? "").toString().toLowerCase().trim();
+      return t == wanted;
+    }).toList();
+  }
+
   // ----- GETTERS -----
   List<Map<String, dynamic>> get events => _events;
   List<Map<String, dynamic>> get nearbyEvents => _nearbyEvents;
@@ -27,7 +52,7 @@ class EventsProvider extends ChangeNotifier {
   String? get error => _error;
   String? get nearbyError => _nearbyError;
 
-  //  Liste filtrée des favoris (pour la page "Mes favoris")
+  // Liste filtrée des favoris (pour la page "Mes favoris")
   List<Map<String, dynamic>> get favorites =>
       _events.where((e) => (e["isFavorite"] ?? false) == true).toList();
 
@@ -51,6 +76,16 @@ class EventsProvider extends ChangeNotifier {
               map["image_url"].toString().isNotEmpty &&
               !map["image_url"].toString().startsWith("http")) {
             map["image_url"] = "$_baseUrl${map["image_url"]}";
+          }
+
+          // ✅ Normalisation event_type (minuscule) + gestion null
+          if (map["event_type"] == null ||
+              map["event_type"].toString().trim().isEmpty ||
+              map["event_type"].toString().toLowerCase() == "null") {
+            map["event_type"] = "autre";
+          } else {
+            map["event_type"] =
+                map["event_type"].toString().toLowerCase().trim();
           }
 
           // Champs locaux pour le front
@@ -103,6 +138,16 @@ class EventsProvider extends ChangeNotifier {
             map["distance"] = (map["distance"] as num).toDouble();
           }
 
+          // ✅ Normalisation event_type aussi ici (si tu filtres nearby un jour)
+          if (map["event_type"] == null ||
+              map["event_type"].toString().trim().isEmpty ||
+              map["event_type"].toString().toLowerCase() == "null") {
+            map["event_type"] = "autre";
+          } else {
+            map["event_type"] =
+                map["event_type"].toString().toLowerCase().trim();
+          }
+
           return map;
         }).toList();
       } else {
@@ -116,7 +161,7 @@ class EventsProvider extends ChangeNotifier {
     }
   }
 
-  //  Incrémenter un like
+  // Incrémenter un like
   void likeEvent(int id) {
     final index = _events.indexWhere((e) => e["id"] == id);
     if (index == -1) return;
@@ -125,7 +170,7 @@ class EventsProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  //  Incrémenter un dislike
+  // Incrémenter un dislike
   void dislikeEvent(int id) {
     final index = _events.indexWhere((e) => e["id"] == id);
     if (index == -1) return;
@@ -134,7 +179,7 @@ class EventsProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  //  Ajouter / retirer des favoris
+  // Ajouter / retirer des favoris
   void toggleFavorite(int id) {
     final index = _events.indexWhere((e) => e["id"] == id);
     if (index == -1) return;

@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/events_provider.dart';
 
+// ✅ Import de la page détails
+import '../evenement/detail_event_page.dart';
+
 class EventCard extends StatelessWidget {
   final Map<String, dynamic> event;
 
@@ -16,13 +19,57 @@ class EventCard extends StatelessWidget {
     return s.startsWith("http://") || s.startsWith("https://");
   }
 
+  // ✅ Format: "Sam, Oct 25 • 8:30 PM"
+  String _formatEventDateLine(Map<String, dynamic> e) {
+    final rawDate = e["date_event"];
+    final rawTime = e["time_event"];
+
+    if (rawDate == null || rawDate.toString().trim().isEmpty) return "";
+
+    DateTime? date;
+    try {
+      date = DateTime.parse(rawDate.toString());
+    } catch (_) {
+      return "";
+    }
+
+    int? hour;
+    int? minute;
+    if (rawTime != null && rawTime.toString().trim().isNotEmpty) {
+      final t = rawTime.toString().trim();
+      final parts = t.split(":");
+      if (parts.length >= 2) {
+        hour = int.tryParse(parts[0]);
+        minute = int.tryParse(parts[1]);
+      }
+    }
+
+    const days = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+    const months = [ "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+    final dayName = days[date.weekday - 1];
+    final monthName = months[date.month - 1];
+    final dayNum = date.day;
+
+    if (hour == null || minute == null) {
+      return "$dayName, $monthName $dayNum";
+    }
+
+    final isPm = hour >= 12;
+    int h12 = hour % 12;
+    if (h12 == 0) h12 = 12;
+    final mm = minute.toString().padLeft(2, "0");
+
+    return "$dayName, $monthName $dayNum • $h12:$mm ${isPm ? "PM" : "AM"}";
+  }
+
   Widget _eventImage(dynamic imageUrl) {
     final hasNetworkImage = _isValidHttpUrl(imageUrl);
 
     if (!hasNetworkImage) {
       return Image.asset(
         "assets/concert.png",
-        height: 130,
+        height: 145,
         width: double.infinity,
         fit: BoxFit.cover,
       );
@@ -30,13 +77,13 @@ class EventCard extends StatelessWidget {
 
     return Image.network(
       imageUrl.toString(),
-      height: 130,
+      height: 145,
       width: double.infinity,
       fit: BoxFit.cover,
       loadingBuilder: (context, child, loadingProgress) {
         if (loadingProgress == null) return child;
         return SizedBox(
-          height: 130,
+          height: 145,
           width: double.infinity,
           child: Center(
             child: CircularProgressIndicator(
@@ -52,7 +99,7 @@ class EventCard extends StatelessWidget {
       errorBuilder: (context, error, stackTrace) {
         return Image.asset(
           "assets/concert.png",
-          height: 130,
+          height: 145,
           width: double.infinity,
           fit: BoxFit.cover,
         );
@@ -63,85 +110,43 @@ class EventCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final eventsProvider = Provider.of<EventsProvider>(context, listen: false);
-
-    // ✅ on prend la vraie clé renvoyée par l’API (Cloudinary)
     final dynamic imageUrl = event["image_url"];
+    final dateLine = _formatEventDateLine(event);
 
     return Container(
-      height: 280,
-      width: 255,
-      decoration: BoxDecoration(
+      height: 240, // ✅ hauteur inchangée
+      width: 220,
+      decoration: const BoxDecoration(
         color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 6,
-            spreadRadius: 1,
-            offset: const Offset(0, 2),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ✅ Image Cloudinary (ou fallback)
           _eventImage(imageUrl),
 
           Padding(
-            padding: const EdgeInsets.all(10.0),
+            padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  (event["titre"] ?? event["title"] ?? "Sans titre").toString(),
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 6),
-
-                Text(
-                  "${event["participants"] ?? ""}",
-                  style: const TextStyle(
-                    color: Colors.blueAccent,
-                    fontSize: 12,
-                  ),
-                ),
-                const SizedBox(height: 10),
-
-                // Likes / Dislikes / Favori
+                // ✅ Titre + Favoris à droite
                 Row(
                   children: [
-                    IconButton(
-                      icon: const Icon(
-                        Icons.thumb_up_alt_outlined,
-                        color: Colors.green,
-                        size: 22,
+                    Expanded(
+                      child: Text(
+                        (event["titre"] ?? event["title"] ?? "Sans titre")
+                            .toString(),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      onPressed: () =>
-                          eventsProvider.likeEvent(event["id"] as int),
                     ),
-                    Text("${event["likes"] ?? 0}"),
-
-                    const SizedBox(width: 4),
-
                     IconButton(
-                      icon: const Icon(
-                        Icons.thumb_down_alt_outlined,
-                        color: Colors.redAccent,
-                        size: 22,
-                      ),
-                      onPressed: () =>
-                          eventsProvider.dislikeEvent(event["id"] as int),
-                    ),
-                    Text("${event["dislikes"] ?? 0}"),
-
-                    const Spacer(),
-
-                    IconButton(
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
                       icon: Icon(
                         (event["isFavorite"] ?? false)
                             ? Icons.favorite
@@ -155,8 +160,60 @@ class EventCard extends StatelessWidget {
                   ],
                 ),
 
+                const SizedBox(height: 2),
+
+                // ✅ Date
+                if (dateLine.isNotEmpty)
+                  Text(
+                    dateLine,
+                    style: const TextStyle(
+                      color: Colors.blue,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+
+                const SizedBox(height: 6),
+
+                // ✅ 25 participants + Détails
+                Row(
+                  children: [
+                    const Text(
+                      "25 participants",
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.black54,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const Spacer(),
+                    InkWell(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => DetailEventPage(event: event),
+                          ),
+                        );
+                      },
+                      child: const Text(
+                        "Détails",
+                        style: TextStyle(
+                          color: Colors.blue,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
                 const SizedBox(height: 4),
 
+                // ✅ Adresse
                 Row(
                   children: [
                     const Icon(
@@ -167,7 +224,9 @@ class EventCard extends StatelessWidget {
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
-                        (event["lieu"] ?? event["location"] ?? "Lieu non renseigné")
+                        (event["lieu"] ??
+                            event["location"] ??
+                            "Lieu non renseigné")
                             .toString(),
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,

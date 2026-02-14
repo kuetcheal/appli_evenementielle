@@ -15,7 +15,6 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-
   @override
   void initState() {
     super.initState();
@@ -27,9 +26,9 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     final eventsProvider = context.watch<EventsProvider>();
-    // Pour l’instant on prend tous les events.
-    // Si tu ajoutes le filtrage, tu pourras mettre : eventsProvider.filteredEvents
-    final events = eventsProvider.events;
+
+    // ✅ ON PREND LA LISTE FILTRÉE (selon CategoryChips)
+    final events = eventsProvider.filteredEvents;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
