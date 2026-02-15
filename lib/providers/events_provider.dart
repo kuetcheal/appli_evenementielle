@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/app_config.dart';
 
@@ -21,8 +22,15 @@ class EventsProvider extends ChangeNotifier {
   String? _selectedType;
   String? get selectedType => _selectedType;
 
+  // ✅ favoris persistés (IDs)
+  static const String _favKey = "favorite_event_ids";
+  final Set<int> _favoriteIds = {};
+
+  EventsProvider() {
+    _loadFavorites(); // ✅ recharge automatiquement au démarrage
+  }
+
   void setSelectedType(String? type) {
-    // toggle : si on reclique la même catégorie -> on reset
     if (_selectedType == type) {
       _selectedType = null;
     } else {
@@ -52,9 +60,72 @@ class EventsProvider extends ChangeNotifier {
   String? get error => _error;
   String? get nearbyError => _nearbyError;
 
-  // Liste filtrée des favoris (pour la page "Mes favoris")
-  List<Map<String, dynamic>> get favorites =>
-      _events.where((e) => (e["isFavorite"] ?? false) == true).toList();
+  // ✅ Favoris (fusion events + nearby) + sans doublons
+  List<Map<String, dynamic>> get favorites {
+    final all = <Map<String, dynamic>>[
+      ..._events,
+      ..._nearbyEvents,
+    ];
+
+    final seen = <int>{};
+    final result = <Map<String, dynamic>>[];
+
+    for (final e in all) {
+      final id = _extractId(e["id"]);
+      if (id == null) continue;
+
+      if (_favoriteIds.contains(id) && !seen.contains(id)) {
+        seen.add(id);
+        e["isFavorite"] = true;
+        result.add(e);
+      }
+    }
+
+    return result;
+  }
+
+  // -------------------------
+  // Helpers favoris persistés
+  // -------------------------
+  int? _extractId(dynamic raw) {
+    if (raw is int) return raw;
+    if (raw is String) return int.tryParse(raw);
+    return int.tryParse(raw?.toString() ?? "");
+  }
+
+  Future<void> _loadFavorites() async {
+    final prefs = await SharedPreferences.getInstance();
+    final ids = prefs.getStringList(_favKey) ?? [];
+
+    _favoriteIds
+      ..clear()
+      ..addAll(ids.map((s) => int.tryParse(s)).whereType<int>());
+
+    // applique aux listes déjà chargées
+    _applyFavoritesToList(_events);
+    _applyFavoritesToList(_nearbyEvents);
+
+    notifyListeners();
+  }
+
+  Future<void> _saveFavorites() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      _favKey,
+      _favoriteIds.map((e) => e.toString()).toList(),
+    );
+  }
+
+  void _applyFavoritesToList(List<Map<String, dynamic>> list) {
+    for (final ev in list) {
+      final id = _extractId(ev["id"]);
+      if (id != null) {
+        ev["isFavorite"] = _favoriteIds.contains(id);
+      } else {
+        ev["isFavorite"] = ev["isFavorite"] ?? false;
+      }
+    }
+  }
 
   // ----- RÉCUPÉRER TOUS LES EVENTS -----
   Future<void> fetchEvents() async {
@@ -91,10 +162,16 @@ class EventsProvider extends ChangeNotifier {
           // Champs locaux pour le front
           map["likes"] = map["likes"] ?? 0;
           map["dislikes"] = map["dislikes"] ?? 0;
-          map["isFavorite"] = map["isFavorite"] ?? false;
+
+          // ✅ favoris persistés
+          final id = _extractId(map["id"]);
+          map["isFavorite"] = id != null ? _favoriteIds.contains(id) : false;
 
           return map;
         }).toList();
+
+        // au cas où _loadFavorites n'a pas fini
+        _applyFavoritesToList(_events);
       } else {
         _error = "Erreur serveur : ${response.statusCode}";
       }
@@ -115,15 +192,19 @@ class EventsProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final uri = Uri.parse("$_baseUrl/api/events/nearby/by-user")
-          .replace(queryParameters: {"mail": mail});
+      final uri = Uri.parse("$_baseUrl/api/events/nearby/by-user").replace(
+        queryParameters: {
+          "mail": mail,
+          "radiusKm": "25",
+        },
+      );
 
       final response = await http.get(uri);
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
 
-        _nearbyEvents = data.map((e) {
+        final mapped = data.map((e) {
           final map = Map<String, dynamic>.from(e);
 
           // image_url relative -> absolue
@@ -133,23 +214,28 @@ class EventsProvider extends ChangeNotifier {
             map["image_url"] = "$_baseUrl${map["image_url"]}";
           }
 
-          // distance renvoyée par l'API (en km)
+          // distance (km)
           if (map["distance"] != null) {
-            map["distance"] = (map["distance"] as num).toDouble();
+            final d = map["distance"];
+            map["distance"] = (d is num) ? d.toDouble() : double.tryParse(d.toString());
           }
 
-          // ✅ Normalisation event_type aussi ici (si tu filtres nearby un jour)
-          if (map["event_type"] == null ||
-              map["event_type"].toString().trim().isEmpty ||
-              map["event_type"].toString().toLowerCase() == "null") {
-            map["event_type"] = "autre";
-          } else {
-            map["event_type"] =
-                map["event_type"].toString().toLowerCase().trim();
-          }
+          // ✅ favoris persistés
+          final id = _extractId(map["id"]);
+          map["isFavorite"] = id != null ? _favoriteIds.contains(id) : false;
 
           return map;
         }).toList();
+
+        // ✅ sécurité : <= 25km + applique favoris
+        _nearbyEvents = mapped.where((ev) {
+          final d = ev["distance"];
+          if (d == null) return false;
+          final dist = (d is num) ? d.toDouble() : double.tryParse(d.toString());
+          return dist != null && dist <= 25.0;
+        }).toList();
+
+        _applyFavoritesToList(_nearbyEvents);
       } else {
         _nearbyError = "Erreur serveur : ${response.statusCode}";
       }
@@ -163,7 +249,7 @@ class EventsProvider extends ChangeNotifier {
 
   // Incrémenter un like
   void likeEvent(int id) {
-    final index = _events.indexWhere((e) => e["id"] == id);
+    final index = _events.indexWhere((e) => _extractId(e["id"]) == id);
     if (index == -1) return;
 
     _events[index]["likes"] = (_events[index]["likes"] ?? 0) + 1;
@@ -172,20 +258,25 @@ class EventsProvider extends ChangeNotifier {
 
   // Incrémenter un dislike
   void dislikeEvent(int id) {
-    final index = _events.indexWhere((e) => e["id"] == id);
+    final index = _events.indexWhere((e) => _extractId(e["id"]) == id);
     if (index == -1) return;
 
     _events[index]["dislikes"] = (_events[index]["dislikes"] ?? 0) + 1;
     notifyListeners();
   }
 
-  // Ajouter / retirer des favoris
+  // ✅ Ajouter / retirer des favoris (persisté + synchro events & nearby)
   void toggleFavorite(int id) {
-    final index = _events.indexWhere((e) => e["id"] == id);
-    if (index == -1) return;
+    if (_favoriteIds.contains(id)) {
+      _favoriteIds.remove(id);
+    } else {
+      _favoriteIds.add(id);
+    }
 
-    final current = _events[index]["isFavorite"] ?? false;
-    _events[index]["isFavorite"] = !current;
+    _applyFavoritesToList(_events);
+    _applyFavoritesToList(_nearbyEvents);
+
+    _saveFavorites();
     notifyListeners();
   }
 }

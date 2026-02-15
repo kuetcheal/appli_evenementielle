@@ -29,6 +29,7 @@ import 'screens/profile/service_page.dart';
 import 'screens/profile/contact_page.dart';
 import 'screens/profile/favoris_page.dart';
 import 'screens/profile/aide_page.dart';
+import 'screens/profile/addresses_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -90,6 +91,7 @@ class MyApp extends StatelessWidget {
         "/contact": (context) => const ContactPage(),
         "/favoris": (context) => const FavorisPage(),
         "/aide": (context) => const AidePage(),
+        "/addresses": (context) => const AddressesPage(),
       },
     );
   }
