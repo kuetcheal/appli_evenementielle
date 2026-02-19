@@ -29,75 +29,81 @@ class _HomePageState extends State<HomePage> {
     final eventsProvider = context.watch<EventsProvider>();
     final events = eventsProvider.filteredEvents;
 
+    // ✅ bg-color comme ton écran "Événements à venir"
+    const pageBg = Color(0xFFF7F6FB);
+
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.only(bottom: 90),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ✅ HEADER (défile maintenant avec le scroll)
-            const HomeHeader(),
+      backgroundColor: pageBg,
+      body: Container(
+        color: pageBg, // (au cas où)
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.only(bottom: 90),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ✅ HEADER
+              const HomeHeader(),
 
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-            // --- CATEGORIES ---
-            const CategoryChips(),
-            const SizedBox(height: 16),
+              // --- CATEGORIES ---
+              const CategoryChips(),
+              const SizedBox(height: 16),
 
-            // --- SECTION "À VENIR" ---
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: const [
-                  Text(
-                    "À venir",
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    "Voir tout >",
-                    style: TextStyle(color: Colors.blueAccent),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 10),
-
-            // --- PARTIE ÉVÉNEMENTS ---
-            if (eventsProvider.isLoading)
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(20),
-                  child: CircularProgressIndicator(),
-                ),
-              )
-            else if (eventsProvider.error != null)
+              // --- SECTION "À VENIR" ---
               Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  eventsProvider.error!,
-                  style: const TextStyle(color: Colors.red),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: const [
+                    Text(
+                      "À venir",
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      "Voir tout >",
+                      style: TextStyle(color: Colors.blueAccent),
+                    ),
+                  ],
                 ),
-              )
-            else
-              EventsHorizontalList(events: events),
+              ),
+              const SizedBox(height: 10),
 
-            const SizedBox(height: 40),
+              // --- PARTIE ÉVÉNÉMENTS ---
+              if (eventsProvider.isLoading)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(20),
+                    child: CircularProgressIndicator(),
+                  ),
+                )
+              else if (eventsProvider.error != null)
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    eventsProvider.error!,
+                    style: const TextStyle(color: Colors.red),
+                  ),
+                )
+              else
+                EventsHorizontalList(events: events),
 
-            // --- SECTION "À PROXIMITÉ DE VOUS" ---
-            const NearbySection(),
+              const SizedBox(height: 40),
 
-            const SizedBox(height: 40),
+              // --- SECTION "À PROXIMITÉ DE VOUS" ---
+              const NearbySection(),
 
-            // --- SECTION "MES FAVORIS" ---
-            const HomeFavorisSection(),
+              const SizedBox(height: 40),
 
-            const SizedBox(height: 40),
-          ],
+              // --- SECTION "MES FAVORIS" ---
+              const HomeFavorisSection(),
+
+              const SizedBox(height: 40),
+            ],
+          ),
         ),
       ),
     );

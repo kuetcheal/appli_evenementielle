@@ -9,10 +9,11 @@ class HomeHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final userProvider = Provider.of<UserProvider>(context);
+    final userProvider = context.watch<UserProvider>();
 
-    final adresse = userProvider.user?["Adresse"] ?? "Adresse inconnue";
-    final codePostal = userProvider.user?["code_postal"] ?? "";
+    final adresse = userProvider.displayedAddress;
+    final codePostal = userProvider.displayedPostalCode;
+    final isGps = userProvider.useCurrentLocation;
 
     return Container(
       decoration: const BoxDecoration(
@@ -22,36 +23,44 @@ class HomeHeader extends StatelessWidget {
         bottom: false,
         child: Padding(
           padding: const EdgeInsets.only(top: 10, left: 20, right: 20, bottom: 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Icon(Icons.notifications, color: Colors.white),
+              const Icon(Icons.notifications, color: Colors.white),
 
-                  // ✅ On rend le bloc adresse cliquable
-                  Expanded(
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(10),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const AddressesPage(),
-                          ),
-                        );
-                      },
+              Expanded(
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(10),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const AddressesPage()),
+                      );
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          const Text(
-                            "Votre adresse",
-                            style: TextStyle(color: Colors.white70, fontSize: 12),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text(
+                                "Votre adresse",
+                                style: TextStyle(color: Colors.white70, fontSize: 12),
+                              ),
+                              if (isGps) ...[
+                                const SizedBox(width: 6),
+                                const Icon(Icons.my_location, size: 14, color: Colors.white70),
+                              ],
+                            ],
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            "$adresse, $codePostal",
+                            codePostal.trim().isEmpty ? adresse : "$adresse, $codePostal",
                             style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
@@ -65,10 +74,10 @@ class HomeHeader extends StatelessWidget {
                       ),
                     ),
                   ),
-
-                  const Icon(Icons.arrow_drop_down, color: Colors.white),
-                ],
+                ),
               ),
+
+              const Icon(Icons.arrow_drop_down, color: Colors.white),
             ],
           ),
         ),

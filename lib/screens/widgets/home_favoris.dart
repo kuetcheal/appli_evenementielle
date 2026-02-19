@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../providers/events_provider.dart';
 import '../evenement/detail_event_page.dart';
-import '../profile/favoris_page.dart'; // ✅ ajoute cet import
+import '../profile/favoris_page.dart';
 
 class HomeFavorisSection extends StatelessWidget {
   const HomeFavorisSection({Key? key}) : super(key: key);

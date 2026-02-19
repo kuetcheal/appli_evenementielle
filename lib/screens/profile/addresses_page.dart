@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
+
 import '../../providers/user_provider.dart';
+import '../../providers/events_provider.dart';
 
 class AddressesPage extends StatefulWidget {
   const AddressesPage({super.key});
@@ -11,6 +15,7 @@ class AddressesPage extends StatefulWidget {
 
 class _AddressesPageState extends State<AddressesPage> {
   final TextEditingController _searchCtrl = TextEditingController();
+  bool _gpsLoading = false;
 
   @override
   void dispose() {
@@ -18,17 +23,102 @@ class _AddressesPageState extends State<AddressesPage> {
     super.dispose();
   }
 
+  Future<void> _useGpsCurrentLocation(BuildContext context) async {
+    if (_gpsLoading) return;
+
+    setState(() => _gpsLoading = true);
+
+    final userProvider = context.read<UserProvider>();
+    final eventsProvider = context.read<EventsProvider>();
+
+    try {
+      // 0) Vérifier que le GPS est activé
+      final enabled = await Geolocator.isLocationServiceEnabled();
+      if (!enabled) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Active la localisation (GPS) sur ton téléphone.")),
+          );
+        }
+        return;
+      }
+
+      // 1) Permissions
+      LocationPermission perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied) {
+        perm = await Geolocator.requestPermission();
+      }
+      if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Permission GPS refusée.")),
+          );
+        }
+        return;
+      }
+
+      // 2) Position
+      final pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      // 3) Reverse geocode => adresse réelle
+      String label = "Position actuelle";
+      String postalCode = "";
+      String city = "";
+
+      try {
+        final placemarks = await placemarkFromCoordinates(pos.latitude, pos.longitude);
+        if (placemarks.isNotEmpty) {
+          final p = placemarks.first;
+          postalCode = (p.postalCode ?? "").trim();
+          city = (p.locality ?? "").trim();
+
+          final street = (p.street ?? "").trim();
+          label = [street, city].where((x) => x.trim().isNotEmpty).join(", ");
+          if (label.trim().isEmpty) label = "Position actuelle";
+        }
+      } catch (_) {}
+
+      // 4) Update provider (header)
+      await userProvider.useCurrentLocationAsAddress(
+        labelAddress: label,
+        postalCode: postalCode,
+        city: city,
+        latitude: pos.latitude,
+        longitude: pos.longitude,
+      );
+
+      // 5) Recalcul nearby sur coords
+      await eventsProvider.fetchNearbyEventsByCoords(
+        lat: pos.latitude,
+        lng: pos.longitude,
+        radiusKm: 25,
+      );
+
+      if (context.mounted) Navigator.pop(context);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Erreur GPS: $e")),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _gpsLoading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final userProvider = context.watch<UserProvider>();
 
+    // Adresse “profil”
     final currentAdresse = userProvider.user?["Adresse"]?.toString() ?? "Adresse inconnue";
     final currentCP = userProvider.user?["code_postal"]?.toString() ?? "";
     final currentCity = userProvider.user?["city"]?.toString() ?? "";
 
     final history = userProvider.addressHistory;
 
-    // (optionnel) filtre simple sur le texte
     final q = _searchCtrl.text.trim().toLowerCase();
     final filteredHistory = q.isEmpty
         ? history
@@ -54,7 +144,7 @@ class _AddressesPageState extends State<AddressesPage> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
         children: [
-          // 🔎 Barre recherche (comme sur ton screenshot)
+          // 🔎 Barre recherche
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
@@ -74,7 +164,6 @@ class _AddressesPageState extends State<AddressesPage> {
 
           const SizedBox(height: 18),
 
-          // ✅ Adresses à proximité (on met ton adresse actuelle)
           const Text(
             "Adresses à proximité",
             style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
@@ -87,7 +176,6 @@ class _AddressesPageState extends State<AddressesPage> {
             subtitle: "$currentAdresse${currentCP.isNotEmpty ? ", $currentCP" : ""}",
             trailing: Icons.edit_outlined,
             onTap: () async {
-              // Ici : on “re-sélectionne” l’adresse actuelle
               await userProvider.setCurrentAddress(
                 address: currentAdresse,
                 postalCode: currentCP,
@@ -99,7 +187,6 @@ class _AddressesPageState extends State<AddressesPage> {
 
           const SizedBox(height: 22),
 
-          // ✅ Adresses précédentes
           const Text(
             "Adresses précédentes",
             style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
@@ -125,6 +212,8 @@ class _AddressesPageState extends State<AddressesPage> {
                   address: a.address,
                   postalCode: a.postalCode,
                   city: a.city,
+                  latitude: a.latitude,
+                  longitude: a.longitude,
                 );
                 if (context.mounted) Navigator.pop(context);
               },
@@ -132,7 +221,6 @@ class _AddressesPageState extends State<AddressesPage> {
 
           const SizedBox(height: 22),
 
-          // ✅ Bloc en bas : position actuelle
           const Text(
             "Votre position actuelle",
             style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
@@ -141,15 +229,10 @@ class _AddressesPageState extends State<AddressesPage> {
 
           _AddressTile(
             icon: Icons.my_location,
-            title: "Utiliser ma position actuelle",
+            title: _gpsLoading ? "Récupération en cours..." : "Utiliser ma position actuelle",
             subtitle: "GPS • Mettre à jour automatiquement",
-            trailing: Icons.chevron_right,
-            onTap: () async {
-              // ✅ Ici tu brancheras le GPS plus tard.
-              // Pour l’instant on appelle une méthode placeholder.
-              await userProvider.useCurrentLocationAsAddress();
-              if (context.mounted) Navigator.pop(context);
-            },
+            trailing: _gpsLoading ? Icons.hourglass_top : Icons.chevron_right,
+            onTap: _gpsLoading ? () {} : () => _useGpsCurrentLocation(context),
           ),
         ],
       ),
@@ -188,25 +271,28 @@ class _AddressTile extends StatelessWidget {
           )
         ],
       ),
-      child: InkWell(
-        onTap: onTap,
-        child: Row(
-          children: [
-            Icon(icon, color: Colors.black87),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title,
-                      style: const TextStyle(fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 4),
-                  Text(subtitle, style: const TextStyle(color: Colors.black54)),
-                ],
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap,
+          child: Row(
+            children: [
+              Icon(icon, color: Colors.black87),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 4),
+                    Text(subtitle, style: const TextStyle(color: Colors.black54)),
+                  ],
+                ),
               ),
-            ),
-            Icon(trailing, color: Colors.black54),
-          ],
+              Icon(trailing, color: Colors.black54),
+            ],
+          ),
         ),
       ),
     );

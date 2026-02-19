@@ -170,7 +170,6 @@ class EventsProvider extends ChangeNotifier {
           return map;
         }).toList();
 
-        // au cas où _loadFavorites n'a pas fini
         _applyFavoritesToList(_events);
       } else {
         _error = "Erreur serveur : ${response.statusCode}";
@@ -183,7 +182,7 @@ class EventsProvider extends ChangeNotifier {
     }
   }
 
-  // ----- RÉCUPÉRER LES EVENTS PROCHE D'UN UTILISATEUR -----
+  // ----- RÉCUPÉRER LES EVENTS PROCHE D'UN UTILISATEUR (coords stockées en DB) -----
   Future<void> fetchNearbyEvents(String mail) async {
     if (mail.isEmpty) return;
 
@@ -207,27 +206,24 @@ class EventsProvider extends ChangeNotifier {
         final mapped = data.map((e) {
           final map = Map<String, dynamic>.from(e);
 
-          // image_url relative -> absolue
           if (map["image_url"] != null &&
               map["image_url"].toString().isNotEmpty &&
               !map["image_url"].toString().startsWith("http")) {
             map["image_url"] = "$_baseUrl${map["image_url"]}";
           }
 
-          // distance (km)
           if (map["distance"] != null) {
             final d = map["distance"];
-            map["distance"] = (d is num) ? d.toDouble() : double.tryParse(d.toString());
+            map["distance"] =
+            (d is num) ? d.toDouble() : double.tryParse(d.toString());
           }
 
-          // ✅ favoris persistés
           final id = _extractId(map["id"]);
           map["isFavorite"] = id != null ? _favoriteIds.contains(id) : false;
 
           return map;
         }).toList();
 
-        // ✅ sécurité : <= 25km + applique favoris
         _nearbyEvents = mapped.where((ev) {
           final d = ev["distance"];
           if (d == null) return false;
@@ -247,6 +243,64 @@ class EventsProvider extends ChangeNotifier {
     }
   }
 
+  // ✅ NOUVEAU : recalcul nearby à partir de la position actuelle (lat/lng)
+  Future<void> fetchNearbyEventsByCoords({
+    required double lat,
+    required double lng,
+    int radiusKm = 25,
+  }) async {
+    _isLoadingNearby = true;
+    _nearbyError = null;
+    notifyListeners();
+
+    try {
+      final uri = Uri.parse("$_baseUrl/api/events/nearby/by-coords").replace(
+        queryParameters: {
+          "lat": lat.toString(),
+          "lng": lng.toString(),
+          "radiusKm": radiusKm.toString(),
+        },
+      );
+
+      final response = await http.get(uri);
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+
+        final mapped = data.map((e) {
+          final map = Map<String, dynamic>.from(e);
+
+          if (map["image_url"] != null &&
+              map["image_url"].toString().isNotEmpty &&
+              !map["image_url"].toString().startsWith("http")) {
+            map["image_url"] = "$_baseUrl${map["image_url"]}";
+          }
+
+          if (map["distance"] != null) {
+            final d = map["distance"];
+            map["distance"] = (d is num) ? d.toDouble() : double.tryParse(d.toString());
+          }
+
+          final id = _extractId(map["id"]);
+          map["isFavorite"] = id != null ? _favoriteIds.contains(id) : false;
+
+          return map;
+        }).toList();
+
+        _nearbyEvents = mapped;
+        _applyFavoritesToList(_nearbyEvents);
+      } else {
+        _nearbyError = "Erreur serveur : ${response.statusCode}";
+      }
+    } catch (e) {
+      _nearbyError = "Erreur de connexion : $e";
+    } finally {
+      _isLoadingNearby = false;
+      notifyListeners();
+    }
+  }
+
+
   // Incrémenter un like
   void likeEvent(int id) {
     final index = _events.indexWhere((e) => _extractId(e["id"]) == id);
@@ -265,7 +319,7 @@ class EventsProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ✅ Ajouter / retirer des favoris (persisté + synchro events & nearby)
+  //  Ajouter / retirer des favoris (persisté + synchro events & nearby)
   void toggleFavorite(int id) {
     if (_favoriteIds.contains(id)) {
       _favoriteIds.remove(id);

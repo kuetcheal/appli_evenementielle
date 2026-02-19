@@ -5,30 +5,36 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/app_config.dart';
 
-class SavedAddress {
+class AddressEntry {
   final String address;
   final String postalCode;
   final String city;
+  final double? latitude;
+  final double? longitude;
 
-  SavedAddress({
+  const AddressEntry({
     required this.address,
     required this.postalCode,
     required this.city,
+    this.latitude,
+    this.longitude,
   });
 
   Map<String, dynamic> toJson() => {
     "address": address,
     "postalCode": postalCode,
     "city": city,
+    "latitude": latitude,
+    "longitude": longitude,
   };
 
-  static SavedAddress fromJson(Map<String, dynamic> json) {
-    return SavedAddress(
-      address: (json["address"] ?? "").toString(),
-      postalCode: (json["postalCode"] ?? "").toString(),
-      city: (json["city"] ?? "").toString(),
-    );
-  }
+  static AddressEntry fromJson(Map<String, dynamic> j) => AddressEntry(
+    address: (j["address"] ?? "").toString(),
+    postalCode: (j["postalCode"] ?? "").toString(),
+    city: (j["city"] ?? "").toString(),
+    latitude: (j["latitude"] is num) ? (j["latitude"] as num).toDouble() : double.tryParse("${j["latitude"]}"),
+    longitude: (j["longitude"] is num) ? (j["longitude"] as num).toDouble() : double.tryParse("${j["longitude"]}"),
+  );
 }
 
 class UserProvider extends ChangeNotifier {
@@ -43,90 +49,194 @@ class UserProvider extends ChangeNotifier {
   // ✅ URL dynamique depuis .env
   String get _baseUrl => "${AppConfig.apiUrl}/api/auth";
 
-  // ----------------------------
-  // ✅ Historique d'adresses
-  // ----------------------------
-  static const String _historyKey = "address_history";
-  final List<SavedAddress> _addressHistory = [];
-  List<SavedAddress> get addressHistory => List.unmodifiable(_addressHistory);
+  // -------------------------
+  // ✅ Adresse affichée (celle sélectionnée)
+  // -------------------------
+  static const _kDisplayedAddress = "displayed_address";
+  static const _kDisplayedPostal = "displayed_postal";
+  static const _kDisplayedCity = "displayed_city";
+  static const _kUseCurrentLocation = "use_current_location";
+  static const _kDisplayedLat = "displayed_lat";
+  static const _kDisplayedLng = "displayed_lng";
+  static const _kHistory = "address_history_v1";
+
+  String _displayedAddress = "";
+  String _displayedPostalCode = "";
+  String _displayedCity = "";
+  bool _useCurrentLocation = false;
+  double? _displayedLat;
+  double? _displayedLng;
+
+  List<AddressEntry> _addressHistory = [];
+  List<AddressEntry> get addressHistory => List.unmodifiable(_addressHistory);
+
+  // ✅ getters demandés par home_header.dart
+  String get displayedAddress {
+    if (_displayedAddress.trim().isNotEmpty) return _displayedAddress;
+    return (_user?["Adresse"] ?? "Adresse inconnue").toString();
+  }
+
+  String get displayedPostalCode {
+    if (_displayedPostalCode.trim().isNotEmpty) return _displayedPostalCode;
+    return (_user?["code_postal"] ?? "").toString();
+  }
+
+  String get displayedCity {
+    if (_displayedCity.trim().isNotEmpty) return _displayedCity;
+    return (_user?["city"] ?? "").toString();
+  }
+
+  bool get useCurrentLocation => _useCurrentLocation;
+
+  double? get displayedLatitude => _displayedLat ?? _toDouble(_user?["latitude"]);
+  double? get displayedLongitude => _displayedLng ?? _toDouble(_user?["longitude"]);
+
+  double? _toDouble(dynamic v) {
+    if (v is num) return v.toDouble();
+    if (v is String) return double.tryParse(v);
+    return null;
+  }
 
   UserProvider() {
-    _loadAddressHistory();
-  }
-
-  Future<void> _loadAddressHistory() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_historyKey);
-
-    if (raw == null || raw.trim().isEmpty) return;
-
-    try {
-      final List<dynamic> data = jsonDecode(raw);
-      _addressHistory
-        ..clear()
-        ..addAll(
-          data.map((e) => SavedAddress.fromJson(Map<String, dynamic>.from(e))),
-        );
-      notifyListeners();
-    } catch (_) {
-      // ignore parsing errors
-    }
-  }
-
-  Future<void> _saveAddressHistory() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = jsonEncode(_addressHistory.map((e) => e.toJson()).toList());
-    await prefs.setString(_historyKey, raw);
-  }
-
-  int _findAddressIndex(SavedAddress a) {
-    return _addressHistory.indexWhere((x) =>
-    x.address == a.address &&
-        x.postalCode == a.postalCode &&
-        x.city == a.city);
-  }
-
-  // ✅ Met à jour l’adresse courante + ajoute à l’historique (persisté)
-  Future<void> setCurrentAddress({
-    required String address,
-    required String postalCode,
-    required String city,
-  }) async {
-    _user ??= {};
-
-    // ⚠️ Tes clés actuelles : "Adresse" et "code_postal"
-    _user!["Adresse"] = address;
-    _user!["code_postal"] = postalCode;
-    _user!["city"] = city;
-
-    final item = SavedAddress(address: address, postalCode: postalCode, city: city);
-
-    // ✅ sans doublon : on retire puis on remet en haut
-    final idx = _findAddressIndex(item);
-    if (idx != -1) _addressHistory.removeAt(idx);
-
-    _addressHistory.insert(0, item);
-
-    // limite à 10
-    if (_addressHistory.length > 10) _addressHistory.removeLast();
-
-    await _saveAddressHistory();
-    notifyListeners();
-  }
-
-  // ✅ Placeholder (tu brancheras Geolocator + reverse geocoding plus tard)
-  Future<void> useCurrentLocationAsAddress() async {
-    // TODO: récupérer latitude/longitude, puis reverse geocode -> address/postalCode/city
-    await setCurrentAddress(
-      address: "Position actuelle",
-      postalCode: "",
-      city: "Autour de moi",
-    );
+    _loadDisplayedAddress();
+    _loadHistory();
   }
 
   // --- MÉTHODE AJOUTÉE ---
   void setUser(Map<String, dynamic> updatedUser) {
     _user = updatedUser;
+
+    // ✅ si aucune adresse affichée sauvegardée, on initialise avec celle du profil
+    if (_displayedAddress.trim().isEmpty) {
+      _displayedAddress = (_user?["Adresse"] ?? "").toString();
+      _displayedPostalCode = (_user?["code_postal"] ?? "").toString();
+      _displayedCity = (_user?["city"] ?? "").toString();
+      _displayedLat = _toDouble(_user?["latitude"]);
+      _displayedLng = _toDouble(_user?["longitude"]);
+      _useCurrentLocation = false;
+      _saveDisplayedAddress();
+    }
+
+    notifyListeners();
+  }
+
+  Future<void> _loadDisplayedAddress() async {
+    final prefs = await SharedPreferences.getInstance();
+    _displayedAddress = prefs.getString(_kDisplayedAddress) ?? "";
+    _displayedPostalCode = prefs.getString(_kDisplayedPostal) ?? "";
+    _displayedCity = prefs.getString(_kDisplayedCity) ?? "";
+    _useCurrentLocation = prefs.getBool(_kUseCurrentLocation) ?? false;
+    _displayedLat = prefs.getDouble(_kDisplayedLat);
+    _displayedLng = prefs.getDouble(_kDisplayedLng);
+    notifyListeners();
+  }
+
+  Future<void> _saveDisplayedAddress() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kDisplayedAddress, _displayedAddress);
+    await prefs.setString(_kDisplayedPostal, _displayedPostalCode);
+    await prefs.setString(_kDisplayedCity, _displayedCity);
+    await prefs.setBool(_kUseCurrentLocation, _useCurrentLocation);
+
+    if (_displayedLat != null) {
+      await prefs.setDouble(_kDisplayedLat, _displayedLat!);
+    } else {
+      await prefs.remove(_kDisplayedLat);
+    }
+
+    if (_displayedLng != null) {
+      await prefs.setDouble(_kDisplayedLng, _displayedLng!);
+    } else {
+      await prefs.remove(_kDisplayedLng);
+    }
+  }
+
+  Future<void> _loadHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_kHistory);
+    if (raw == null || raw.trim().isEmpty) return;
+
+    try {
+      final list = jsonDecode(raw) as List<dynamic>;
+      _addressHistory = list
+          .whereType<Map<String, dynamic>>()
+          .map((j) => AddressEntry.fromJson(j))
+          .toList();
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  Future<void> _saveHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = jsonEncode(_addressHistory.map((e) => e.toJson()).toList());
+    await prefs.setString(_kHistory, raw);
+  }
+
+  void _pushHistory(AddressEntry entry) {
+    // évite doublons
+    _addressHistory.removeWhere((e) =>
+    e.address == entry.address &&
+        e.postalCode == entry.postalCode &&
+        e.city == entry.city);
+
+    _addressHistory.insert(0, entry);
+    if (_addressHistory.length > 15) {
+      _addressHistory = _addressHistory.take(15).toList();
+    }
+    _saveHistory();
+  }
+
+  /// ✅ Sélection d’une adresse (manuelle/historique)
+  Future<void> setCurrentAddress({
+    required String address,
+    required String postalCode,
+    required String city,
+    double? latitude,
+    double? longitude,
+  }) async {
+    _displayedAddress = address;
+    _displayedPostalCode = postalCode;
+    _displayedCity = city;
+    _displayedLat = latitude;
+    _displayedLng = longitude;
+    _useCurrentLocation = false;
+
+    _pushHistory(AddressEntry(
+      address: address,
+      postalCode: postalCode,
+      city: city,
+      latitude: latitude,
+      longitude: longitude,
+    ));
+
+    await _saveDisplayedAddress();
+    notifyListeners();
+  }
+
+  /// ✅ Position GPS choisie
+  Future<void> useCurrentLocationAsAddress({
+    required String labelAddress, // ✅ IMPORTANT : correspond à ton AddressesPage
+    required String postalCode,
+    required String city,
+    required double latitude,
+    required double longitude,
+  }) async {
+    _displayedAddress = labelAddress;
+    _displayedPostalCode = postalCode;
+    _displayedCity = city;
+    _displayedLat = latitude;
+    _displayedLng = longitude;
+    _useCurrentLocation = true;
+
+    _pushHistory(AddressEntry(
+      address: labelAddress,
+      postalCode: postalCode,
+      city: city,
+      latitude: latitude,
+      longitude: longitude,
+    ));
+
+    await _saveDisplayedAddress();
     notifyListeners();
   }
 
@@ -162,8 +272,7 @@ class UserProvider extends ChangeNotifier {
       } else {
         try {
           final decoded = jsonDecode(response.body);
-          _errorMessage =
-              decoded['error'] ?? decoded['message'] ?? 'Erreur inconnue';
+          _errorMessage = decoded['error'] ?? decoded['message'] ?? 'Erreur inconnue';
         } catch (_) {
           _errorMessage = "Erreur serveur : ${response.statusCode}";
         }
@@ -197,7 +306,6 @@ class UserProvider extends ChangeNotifier {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final token = data["token"];
-
         _user = (data["user"] is Map<String, dynamic>)
             ? Map<String, dynamic>.from(data["user"])
             : null;
@@ -207,24 +315,14 @@ class UserProvider extends ChangeNotifier {
           await prefs.setString("token", token.toString());
         }
 
-        // ✅ Optionnel : si le backend renvoie Adresse/code_postal/city, on les ajoute à l’historique
-        final a = _user?["Adresse"]?.toString() ?? "";
-        final cp = _user?["code_postal"]?.toString() ?? "";
-        final city = _user?["city"]?.toString() ?? "";
-
-        if (a.trim().isNotEmpty) {
-          await setCurrentAddress(address: a, postalCode: cp, city: city);
-        } else {
-          notifyListeners();
-        }
+        // ✅ sync user -> affichage si vide
+        if (_user != null) setUser(_user!);
 
         return true;
       } else {
         try {
           final decoded = jsonDecode(response.body);
-          _errorMessage = decoded['error'] ??
-              decoded['message'] ??
-              "Erreur d'identifiants";
+          _errorMessage = decoded['error'] ?? decoded['message'] ?? "Erreur d'identifiants";
         } catch (_) {
           _errorMessage = "Erreur serveur : ${response.statusCode}";
         }
@@ -260,8 +358,7 @@ class UserProvider extends ChangeNotifier {
       } else {
         try {
           final decoded = jsonDecode(response.body);
-          _errorMessage =
-              decoded['error'] ?? decoded['message'] ?? "Code invalide";
+          _errorMessage = decoded['error'] ?? decoded['message'] ?? "Code invalide";
         } catch (_) {
           _errorMessage = "Erreur serveur : ${response.statusCode}";
         }
@@ -294,9 +391,7 @@ class UserProvider extends ChangeNotifier {
       } else {
         try {
           final decoded = jsonDecode(response.body);
-          _errorMessage = decoded['error'] ??
-              decoded['message'] ??
-              "Impossible d’envoyer l’e-mail.";
+          _errorMessage = decoded['error'] ?? decoded['message'] ?? "Impossible d’envoyer l’e-mail.";
         } catch (_) {
           _errorMessage = "Erreur serveur : ${response.statusCode}";
         }
@@ -315,7 +410,6 @@ class UserProvider extends ChangeNotifier {
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove("token");
-
     _user = null;
     notifyListeners();
   }
