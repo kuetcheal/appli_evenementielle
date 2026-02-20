@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'home_page.dart';
 import 'evenement/list_event_page.dart';
-import 'profile/profile_page.dart'; // ✅ chemin corrigé
+import 'evenement/search.dart';
+
+import 'profile/profile_page.dart';
 
 class MainPage extends StatefulWidget {
   const MainPage({Key? key}) : super(key: key);
@@ -13,27 +15,23 @@ class MainPage extends StatefulWidget {
 class _MainPageState extends State<MainPage> {
   int _currentIndex = 0;
 
-  // Pages associées à chaque onglet
   final List<Widget> _pages = const [
-    HomePage(),                                // Découvrir
-    Center(child: Text("Plan (à venir)")),     // Plan
-    ListEventPage(),                           // Événements
-    ProfilePage(),                              // ✅ Profil dynamique
+    HomePage(),            // Découvrir
+    SearchEventPage(),     //  Filtre
+    ListEventPage(),       // Événements
+    ProfilePage(),         // Profil
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      extendBody: true, // effet flottant de la barre
+      extendBody: true,
       body: _pages[_currentIndex],
-
-      // ---- Barre de navigation inférieure ----
       bottomNavigationBar: Padding(
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
         child: Stack(
           clipBehavior: Clip.none,
           children: [
-            // ---- Conteneur de la barre ----
             Container(
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -53,7 +51,7 @@ class _MainPageState extends State<MainPage> {
                 backgroundColor: Colors.transparent,
                 elevation: 0,
                 type: BottomNavigationBarType.fixed,
-                selectedItemColor: Colors.purple,
+                selectedItemColor: const Color(0xFF6C63FF),
                 unselectedItemColor: Colors.black54,
                 showSelectedLabels: true,
                 showUnselectedLabels: true,
@@ -63,8 +61,8 @@ class _MainPageState extends State<MainPage> {
                     label: 'Découvrir',
                   ),
                   BottomNavigationBarItem(
-                    icon: Icon(Icons.map_rounded),
-                    label: 'Plan',
+                    icon: Icon(Icons.tune_rounded),
+                    label: 'Filtre',
                   ),
                   BottomNavigationBarItem(
                     icon: Icon(Icons.favorite_border_rounded),
@@ -77,8 +75,6 @@ class _MainPageState extends State<MainPage> {
                 ],
               ),
             ),
-
-            // ---- Badge Home décoratif (au centre, surélevé) ----
             Positioned(
               top: -24,
               left: 0,
@@ -91,15 +87,13 @@ class _MainPageState extends State<MainPage> {
     );
   }
 
-  // ---- Icône centrale (home) ----
   Widget _homeBadge() {
     return Container(
       width: 46,
       height: 46,
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         shape: BoxShape.circle,
-        color: Colors.purple,
-
+        color: Color(0xFF6C63FF),
       ),
       child: const Icon(Icons.home_rounded, color: Colors.white, size: 28),
     );
