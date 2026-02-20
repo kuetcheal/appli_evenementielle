@@ -94,23 +94,12 @@ class _MainPageState extends State<MainPage> {
   // ---- Icône centrale (home) ----
   Widget _homeBadge() {
     return Container(
-      width: 56,
-      height: 56,
+      width: 46,
+      height: 46,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: Colors.purple,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.purple.withOpacity(0.35),
-            blurRadius: 24,
-            spreadRadius: 6,
-          ),
-          BoxShadow(
-            color: Colors.white.withOpacity(0.9),
-            blurRadius: 0,
-            spreadRadius: -4, // halo clair
-          ),
-        ],
+
       ),
       child: const Icon(Icons.home_rounded, color: Colors.white, size: 28),
     );

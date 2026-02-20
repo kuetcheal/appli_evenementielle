@@ -61,3 +61,13 @@ Cette approche permet :
 - Un calcul optimisé directement en base de données.
 - Un filtrage des événements dans un rayon défini (ex : 25 km).
 - Un tri automatique par proximité.
+
+
+#### gestion de l'ittineraire
+La fonctionnalité d’itinéraire a été implémentée via un composant dédié (DirectionsButton) chargé de gérer
+l’interaction utilisateur et l’ouverture de l’application de navigation. Lors du clic, un BottomSheet
+permet à l’utilisateur de sélectionner un mode de transport (voiture, marche, transport en commun). Le mode choisi est ensuite injecté 
+dans une URL de type Google Maps Directions API contenant les coordonnées GPS de l’événement. Cette URL est générée dynamiquement
+à partir des données de l’événement et ouverte via le package url_launcher en mode application externe. Le calcul du trajet,
+l’estimation de la durée et l’affichage cartographique sont entièrement délégués à Google Maps, tandis que 
+l’application conserve uniquement la responsabilité de la génération des paramètres et du déclenchement de la navigation.

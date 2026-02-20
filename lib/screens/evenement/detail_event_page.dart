@@ -1,10 +1,21 @@
 import 'package:flutter/material.dart';
-import '../paiement/ticket_webview_page.dart';
+import 'package:geolocator/geolocator.dart';
 
-class DetailEventPage extends StatelessWidget {
+import '../paiement/ticket_webview_page.dart';
+import '../widgets/directions_button.dart';
+import '../widgets/distance_badge.dart';
+
+class DetailEventPage extends StatefulWidget {
   final Map<String, dynamic> event;
 
   const DetailEventPage({Key? key, required this.event}) : super(key: key);
+
+  @override
+  State<DetailEventPage> createState() => _DetailEventPageState();
+}
+
+class _DetailEventPageState extends State<DetailEventPage> {
+  Future<double?>? _distanceFuture;
 
   bool _isValidHttpUrl(dynamic value) {
     if (value == null) return false;
@@ -14,8 +25,60 @@ class DetailEventPage extends StatelessWidget {
     return s.startsWith("http://") || s.startsWith("https://");
   }
 
+  double? _asDouble(dynamic v) {
+    if (v == null) return null;
+    if (v is num) return v.toDouble();
+    final s = v.toString().trim();
+    if (s.isEmpty) return null;
+    return double.tryParse(s);
+  }
+
+  Future<double?> _calculateDistanceKm({
+    required double? destLat,
+    required double? destLng,
+  }) async {
+    if (destLat == null || destLng == null) return null;
+
+    final enabled = await Geolocator.isLocationServiceEnabled();
+    if (!enabled) return null;
+
+    var perm = await Geolocator.checkPermission();
+    if (perm == LocationPermission.denied) {
+      perm = await Geolocator.requestPermission();
+    }
+    if (perm == LocationPermission.denied ||
+        perm == LocationPermission.deniedForever) {
+      return null;
+    }
+
+    final pos = await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.medium,
+    );
+
+    final meters = Geolocator.distanceBetween(
+      pos.latitude,
+      pos.longitude,
+      destLat,
+      destLng,
+    );
+
+    return meters / 1000.0;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+
+    final destLat = _asDouble(widget.event["latitude"] ?? widget.event["lat"]);
+    final destLng = _asDouble(widget.event["longitude"] ?? widget.event["lng"]);
+
+    _distanceFuture = _calculateDistanceKm(destLat: destLat, destLng: destLng);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final event = widget.event;
+
     final String title = (event["title"] ?? "Titre de l'évènement").toString();
     final String description = (event["description"] ?? "").toString();
 
@@ -31,6 +94,10 @@ class DetailEventPage extends StatelessWidget {
     final dynamic rawImageUrl = event["image_url"];
     final bool hasNetworkImage = _isValidHttpUrl(rawImageUrl);
     final String? imageUrl = hasNetworkImage ? rawImageUrl.toString() : null;
+
+    // ✅ Coordonnées (tu peux utiliser latitude/longitude OU lat/lng selon ton backend)
+    final double? latitude = _asDouble(event["latitude"] ?? event["lat"]);
+    final double? longitude = _asDouble(event["longitude"] ?? event["lng"]);
 
     final String dateMain = dateEvent.isNotEmpty ? dateEvent : "Date inconnue";
     final String dateRange = timeEvent.isNotEmpty ? timeEvent : "Heure inconnue";
@@ -89,7 +156,6 @@ class DetailEventPage extends StatelessWidget {
                     fit: BoxFit.cover,
                   ),
                 ),
-
                 Positioned(
                   top: 44,
                   left: 16,
@@ -101,7 +167,6 @@ class DetailEventPage extends StatelessWidget {
                     ),
                   ),
                 ),
-
                 Positioned(
                   top: 44,
                   right: 16,
@@ -113,7 +178,6 @@ class DetailEventPage extends StatelessWidget {
                     ),
                   ),
                 ),
-
                 Positioned(
                   top: 92,
                   left: 64,
@@ -140,7 +204,6 @@ class DetailEventPage extends StatelessWidget {
                     ),
                   ),
                 ),
-
                 Positioned(
                   bottom: -28,
                   left: 24,
@@ -214,9 +277,7 @@ class DetailEventPage extends StatelessWidget {
                 ),
               ],
             ),
-
             const SizedBox(height: 40),
-
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
@@ -246,6 +307,21 @@ class DetailEventPage extends StatelessWidget {
                     title: locationTitle,
                     subtitle: locationAddress,
                   ),
+
+                  // ✅ Badge distance (optionnel)
+                  FutureBuilder<double?>(
+                    future: _distanceFuture,
+                    builder: (context, snapshot) {
+                      final km = snapshot.data;
+                      if (km == null) return const SizedBox.shrink();
+                      return DistanceBadge(distanceKm: km);
+                    },
+                  ),
+
+                  const SizedBox(height: 22),
+
+                  // ✅ Itinéraire
+                  DirectionsButton(latitude: latitude, longitude: longitude),
 
                   const SizedBox(height: 26),
 
