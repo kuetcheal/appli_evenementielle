@@ -6,6 +6,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'providers/events_provider.dart';
 import 'providers/user_provider.dart';
 import 'providers/contact_provider.dart';
+import 'providers/notifications_provider.dart';
 
 // Écrans principaux
 import 'screens/main_page.dart';
@@ -43,6 +44,7 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => EventsProvider()),
         ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProvider(create: (_) => ContactProvider()),
+        ChangeNotifierProvider(create: (_) => NotificationsProvider()),
       ],
       child: const MyApp(),
     ),

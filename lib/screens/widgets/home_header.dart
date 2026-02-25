@@ -1,8 +1,12 @@
 // lib/screens/widgets/home_header.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../providers/user_provider.dart';
+import '../../providers/notifications_provider.dart';
+
 import '../profile/addresses_page.dart';
+import 'notifications_page.dart'; // adapte le chemin si ton fichier est ailleurs
 
 class HomeHeader extends StatelessWidget {
   const HomeHeader({super.key});
@@ -10,6 +14,7 @@ class HomeHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final userProvider = context.watch<UserProvider>();
+    final notifProvider = context.watch<NotificationsProvider>();
 
     final adresse = userProvider.displayedAddress;
     final codePostal = userProvider.displayedPostalCode;
@@ -26,8 +31,46 @@ class HomeHeader extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Icon(Icons.notifications, color: Colors.white),
+              // 🔔 Notifications + badge
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const NotificationsPage()),
+                  );
+                },
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    const Icon(Icons.notifications, color: Colors.white),
 
+                    // Badge rouge si notif activées + nouveaux events
+                    if (notifProvider.enabled && notifProvider.badgeCount > 0)
+                      Positioned(
+                        right: -6,
+                        top: -6,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.white, width: 1),
+                          ),
+                          child: Text(
+                            "${notifProvider.badgeCount}",
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+
+              // Adresse (inchangé)
               Expanded(
                 child: Material(
                   color: Colors.transparent,
