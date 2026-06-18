@@ -11,12 +11,23 @@ class EventCard extends StatelessWidget {
 
   const EventCard({super.key, required this.event});
 
+  // ✅ mêmes dimensions que NearbySection
+  static const double _cardWidth = 220;
+  static const double _cardHeight = 245;
+  static const double _imageHeight = 110;
+
   bool _isValidHttpUrl(dynamic value) {
     if (value == null) return false;
     final s = value.toString().trim();
     if (s.isEmpty) return false;
     if (s.toLowerCase() == "null") return false;
     return s.startsWith("http://") || s.startsWith("https://");
+  }
+
+  int? _safeId(dynamic raw) {
+    if (raw is int) return raw;
+    if (raw is String) return int.tryParse(raw);
+    return null;
   }
 
   // ✅ Format: "Sam, Oct 25 • 8:30 PM"
@@ -35,9 +46,11 @@ class EventCard extends StatelessWidget {
 
     int? hour;
     int? minute;
+
     if (rawTime != null && rawTime.toString().trim().isNotEmpty) {
       final t = rawTime.toString().trim();
       final parts = t.split(":");
+
       if (parts.length >= 2) {
         hour = int.tryParse(parts[0]);
         minute = int.tryParse(parts[1]);
@@ -45,7 +58,20 @@ class EventCard extends StatelessWidget {
     }
 
     const days = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
-    const months = [ "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec"
+    ];
 
     final dayName = days[date.weekday - 1];
     final monthName = months[date.month - 1];
@@ -58,6 +84,7 @@ class EventCard extends StatelessWidget {
     final isPm = hour >= 12;
     int h12 = hour % 12;
     if (h12 == 0) h12 = 12;
+
     final mm = minute.toString().padLeft(2, "0");
 
     return "$dayName, $monthName $dayNum • $h12:$mm ${isPm ? "PM" : "AM"}";
@@ -69,7 +96,7 @@ class EventCard extends StatelessWidget {
     if (!hasNetworkImage) {
       return Image.asset(
         "assets/concert.png",
-        height: 145,
+        height: _imageHeight,
         width: double.infinity,
         fit: BoxFit.cover,
       );
@@ -77,20 +104,21 @@ class EventCard extends StatelessWidget {
 
     return Image.network(
       imageUrl.toString(),
-      height: 145,
+      height: _imageHeight,
       width: double.infinity,
       fit: BoxFit.cover,
       loadingBuilder: (context, child, loadingProgress) {
         if (loadingProgress == null) return child;
+
         return SizedBox(
-          height: 145,
+          height: _imageHeight,
           width: double.infinity,
           child: Center(
             child: CircularProgressIndicator(
               strokeWidth: 2,
               value: loadingProgress.expectedTotalBytes != null
                   ? loadingProgress.cumulativeBytesLoaded /
-                  (loadingProgress.expectedTotalBytes!)
+                  loadingProgress.expectedTotalBytes!
                   : null,
             ),
           ),
@@ -99,7 +127,7 @@ class EventCard extends StatelessWidget {
       errorBuilder: (context, error, stackTrace) {
         return Image.asset(
           "assets/concert.png",
-          height: 145,
+          height: _imageHeight,
           width: double.infinity,
           fit: BoxFit.cover,
         );
@@ -110,12 +138,22 @@ class EventCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final eventsProvider = Provider.of<EventsProvider>(context, listen: false);
+
     final dynamic imageUrl = event["image_url"];
     final dateLine = _formatEventDateLine(event);
+    final id = _safeId(event["id"]);
+
+    final title = (event["titre"] ?? event["title"] ?? "Sans titre").toString();
+
+    final location =
+    (event["lieu"] ?? event["location"] ?? "Lieu non renseigné")
+        .toString();
+
+    final isFavorite = (event["isFavorite"] ?? false) == true;
 
     return Container(
-      height: 240, // ✅ hauteur inchangée
-      width: 220,
+      width: _cardWidth,
+      height: _cardHeight,
       decoration: const BoxDecoration(
         color: Colors.white,
       ),
@@ -125,17 +163,17 @@ class EventCard extends StatelessWidget {
           _eventImage(imageUrl),
 
           Padding(
-            padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
+            padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                // ✅ Titre + Favoris à droite
+                // ✅ Titre + Favoris
                 Row(
                   children: [
                     Expanded(
                       child: Text(
-                        (event["titre"] ?? event["title"] ?? "Sans titre")
-                            .toString(),
+                        title,
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
@@ -148,14 +186,12 @@ class EventCard extends StatelessWidget {
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                       icon: Icon(
-                        (event["isFavorite"] ?? false)
-                            ? Icons.favorite
-                            : Icons.favorite_border,
+                        isFavorite ? Icons.favorite : Icons.favorite_border,
                         color: Colors.purple,
                         size: 22,
                       ),
-                      onPressed: () =>
-                          eventsProvider.toggleFavorite(event["id"] as int),
+                      onPressed:
+                      id == null ? null : () => eventsProvider.toggleFavorite(id),
                     ),
                   ],
                 ),
@@ -177,18 +213,21 @@ class EventCard extends StatelessWidget {
 
                 const SizedBox(height: 6),
 
-                // ✅ 25 participants + Détails
+                // ✅ Participants + Détails
                 Row(
                   children: [
-                    const Text(
-                      "25 participants",
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.black54,
-                        fontWeight: FontWeight.w600,
+                    const Expanded(
+                      child: Text(
+                        "25 participants",
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.black54,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    const Spacer(),
                     InkWell(
                       onTap: () {
                         Navigator.push(
@@ -204,7 +243,7 @@ class EventCard extends StatelessWidget {
                           color: Colors.blue,
                           fontWeight: FontWeight.w600,
                           fontSize: 12,
-                          decoration: TextDecoration.underline,
+                          decoration: TextDecoration.none,
                         ),
                       ),
                     ),
@@ -224,10 +263,7 @@ class EventCard extends StatelessWidget {
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
-                        (event["lieu"] ??
-                            event["location"] ??
-                            "Lieu non renseigné")
-                            .toString(),
+                        location,
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           color: Colors.black87,

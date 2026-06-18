@@ -65,6 +65,85 @@ class _DetailEventPageState extends State<DetailEventPage> {
     return meters / 1000.0;
   }
 
+  // ✅ Même logique de format que dans list_event.dart
+  String _formatEventDateLine(Map<String, dynamic> e) {
+    final rawDate = e["date_event"];
+    final rawTime = e["time_event"];
+
+    if (rawDate == null || rawDate.toString().trim().isEmpty) {
+      return "Date inconnue";
+    }
+
+    DateTime? date;
+    try {
+      date = DateTime.parse(rawDate.toString());
+    } catch (_) {
+      return "Date inconnue";
+    }
+
+    int? hour;
+    int? minute;
+
+    if (rawTime != null && rawTime.toString().trim().isNotEmpty) {
+      final parts = rawTime.toString().split(":");
+      if (parts.length >= 2) {
+        hour = int.tryParse(parts[0]);
+        minute = int.tryParse(parts[1]);
+      }
+    }
+
+    const days = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+    const months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec"
+    ];
+
+    final dayName = days[date.weekday - 1];
+    final monthName = months[date.month - 1];
+    final dayNum = date.day;
+
+    if (hour == null || minute == null) {
+      return "$dayName, $monthName $dayNum";
+    }
+
+    final isPm = hour >= 12;
+    int h12 = hour % 12;
+    if (h12 == 0) h12 = 12;
+    final mm = minute.toString().padLeft(2, "0");
+
+    return "$dayName, $monthName $dayNum • $h12:$mm ${isPm ? "PM" : "AM"}";
+  }
+
+  void _openPlanEvent() {
+    final dynamic rawPlanUrl =
+        widget.event["plan_event_url"] ?? widget.event["plan_url"];
+
+    if (_isValidHttpUrl(rawPlanUrl)) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => TicketWebViewPage(url: rawPlanUrl.toString()),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Aucun plan d’évènement disponible."),
+        ),
+      );
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -85,22 +164,16 @@ class _DetailEventPageState extends State<DetailEventPage> {
     final String location = (event["location"] ?? "").toString();
     final String city = (event["city"] ?? "").toString();
 
-    final String dateEvent = (event["date_event"] ?? "").toString();
-    final String timeEvent = (event["time_event"] ?? "").toString();
-
     final String? ticketUrl = event["ticket_url"]?.toString();
 
-    // ✅ IMPORTANT : image_url venant de Cloudinary
     final dynamic rawImageUrl = event["image_url"];
     final bool hasNetworkImage = _isValidHttpUrl(rawImageUrl);
     final String? imageUrl = hasNetworkImage ? rawImageUrl.toString() : null;
 
-    // ✅ Coordonnées (tu peux utiliser latitude/longitude OU lat/lng selon ton backend)
     final double? latitude = _asDouble(event["latitude"] ?? event["lat"]);
     final double? longitude = _asDouble(event["longitude"] ?? event["lng"]);
 
-    final String dateMain = dateEvent.isNotEmpty ? dateEvent : "Date inconnue";
-    final String dateRange = timeEvent.isNotEmpty ? timeEvent : "Heure inconnue";
+    final String formattedDate = _formatEventDateLine(event);
 
     final String locationTitle =
     location.isNotEmpty ? location : "Lieu non renseigné";
@@ -132,7 +205,8 @@ class _DetailEventPageState extends State<DetailEventPage> {
                         width: double.infinity,
                         child: Center(
                           child: CircularProgressIndicator(
-                            value: loadingProgress.expectedTotalBytes != null
+                            value: loadingProgress.expectedTotalBytes !=
+                                null
                                 ? loadingProgress.cumulativeBytesLoaded /
                                 (loadingProgress.expectedTotalBytes!)
                                 : null,
@@ -173,7 +247,8 @@ class _DetailEventPageState extends State<DetailEventPage> {
                   child: CircleAvatar(
                     backgroundColor: Colors.black.withOpacity(0.45),
                     child: IconButton(
-                      icon: const Icon(Icons.favorite_border, color: Colors.white),
+                      icon: const Icon(Icons.favorite_border,
+                          color: Colors.white),
                       onPressed: () {},
                     ),
                   ),
@@ -182,7 +257,8 @@ class _DetailEventPageState extends State<DetailEventPage> {
                   top: 92,
                   left: 64,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(
                       color: Colors.black.withOpacity(0.35),
                       borderRadius: BorderRadius.circular(20),
@@ -209,7 +285,8 @@ class _DetailEventPageState extends State<DetailEventPage> {
                   left: 24,
                   right: 24,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(22),
@@ -237,7 +314,8 @@ class _DetailEventPageState extends State<DetailEventPage> {
                         ),
                         const SizedBox(width: 6),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 6),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(14),
                             gradient: const LinearGradient(
@@ -260,15 +338,20 @@ class _DetailEventPageState extends State<DetailEventPage> {
                           onPressed: () {},
                           style: TextButton.styleFrom(
                             foregroundColor: const Color(0xFF6C63FF),
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 8),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(14),
                             ),
-                            backgroundColor: const Color(0xFF6C63FF).withOpacity(0.12),
+                            backgroundColor:
+                            const Color(0xFF6C63FF).withOpacity(0.12),
                           ),
                           child: const Text(
                             "Invite",
-                            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5),
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12.5,
+                            ),
                           ),
                         ),
                       ],
@@ -296,8 +379,8 @@ class _DetailEventPageState extends State<DetailEventPage> {
                   _InfoRow(
                     icon: Icons.calendar_today,
                     iconBg: const Color(0xFF6C63FF),
-                    title: dateMain,
-                    subtitle: dateRange,
+                    title: formattedDate,
+                    subtitle: "Date de l’évènement",
                   ),
                   const SizedBox(height: 14),
 
@@ -308,7 +391,6 @@ class _DetailEventPageState extends State<DetailEventPage> {
                     subtitle: locationAddress,
                   ),
 
-                  // ✅ Badge distance (optionnel)
                   FutureBuilder<double?>(
                     future: _distanceFuture,
                     builder: (context, snapshot) {
@@ -320,8 +402,31 @@ class _DetailEventPageState extends State<DetailEventPage> {
 
                   const SizedBox(height: 22),
 
-                  // ✅ Itinéraire
-                  DirectionsButton(latitude: latitude, longitude: longitude),
+                  // ✅ Deux boutons sur la même ligne
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SizedBox(
+                          height: 52,
+                          child: DirectionsButton(
+                            latitude: latitude,
+                            longitude: longitude,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: SizedBox(
+                          height: 52,
+                          child: _GradientActionButton(
+                            text: "Plan event",
+                            icon: Icons.map_outlined,
+                            onTap: _openPlanEvent,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
 
                   const SizedBox(height: 26),
 
@@ -337,7 +442,10 @@ class _DetailEventPageState extends State<DetailEventPage> {
                   if (description.isNotEmpty)
                     Text(
                       description,
-                      style: const TextStyle(fontSize: 14.2, color: Colors.black87),
+                      style: const TextStyle(
+                        fontSize: 14.2,
+                        color: Colors.black87,
+                      ),
                     )
                   else
                     const _BulletLine(
@@ -356,7 +464,8 @@ class _DetailEventPageState extends State<DetailEventPage> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => TicketWebViewPage(url: ticketUrl),
+                              builder: (context) =>
+                                  TicketWebViewPage(url: ticketUrl),
                             ),
                           );
                         } else {
@@ -379,7 +488,7 @@ class _DetailEventPageState extends State<DetailEventPage> {
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: Color(0xFF6C63FF).withOpacity(0.35),
+                              color: const Color(0xFF6C63FF).withOpacity(0.35),
                               blurRadius: 18,
                               offset: const Offset(0, 8),
                             ),
@@ -398,7 +507,8 @@ class _DetailEventPageState extends State<DetailEventPage> {
                                 ),
                               ),
                               SizedBox(width: 8),
-                              Icon(Icons.arrow_forward_rounded, color: Colors.white),
+                              Icon(Icons.arrow_forward_rounded,
+                                  color: Colors.white),
                             ],
                           ),
                         ),
@@ -451,12 +561,18 @@ class _InfoRow extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                ),
               ),
               const SizedBox(height: 2),
               Text(
                 subtitle,
-                style: const TextStyle(color: Colors.grey, fontSize: 13.2),
+                style: const TextStyle(
+                  color: Colors.grey,
+                  fontSize: 13.2,
+                ),
               ),
             ],
           ),
@@ -468,6 +584,7 @@ class _InfoRow extends StatelessWidget {
 
 class _BulletLine extends StatelessWidget {
   final String text;
+
   const _BulletLine({Key? key, required this.text}) : super(key: key);
 
   @override
@@ -477,7 +594,10 @@ class _BulletLine extends StatelessWidget {
         const Icon(Icons.check_circle, color: Colors.green, size: 18),
         const SizedBox(width: 8),
         Expanded(
-          child: Text(text, style: const TextStyle(fontSize: 14.2)),
+          child: Text(
+            text,
+            style: const TextStyle(fontSize: 14.2),
+          ),
         ),
       ],
     );
@@ -487,8 +607,12 @@ class _BulletLine extends StatelessWidget {
 class _AvatarDot extends StatelessWidget {
   final double offset;
   final String label;
-  const _AvatarDot({Key? key, required this.offset, required this.label})
-      : super(key: key);
+
+  const _AvatarDot({
+    Key? key,
+    required this.offset,
+    required this.label,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -506,6 +630,64 @@ class _AvatarDot extends StatelessWidget {
               color: Color(0xFF6C63FF),
               fontWeight: FontWeight.bold,
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GradientActionButton extends StatelessWidget {
+  final String text;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _GradientActionButton({
+    Key? key,
+    required this.text,
+    required this.icon,
+    required this.onTap,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: Ink(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF7A42F4), Color(0xFF6C63FF)],
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF6C63FF).withOpacity(0.22),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Center(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: Colors.white, size: 18),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  text,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13.5,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),

@@ -15,14 +15,23 @@ class _EventsHorizontalListState extends State<EventsHorizontalList> {
   final ScrollController _controller = ScrollController();
   double _scrollPosition = 0.0;
 
+  // ✅ mêmes dimensions que NearbySection
+  static const double _listHeight = 255;
+  static const double _cardWidth = 220;
+  static const double _cardHeight = 245;
+  static const double _cardSpacing = 12;
+
   @override
   void initState() {
     super.initState();
+
     _controller.addListener(() {
+      if (!_controller.hasClients) return;
+
+      final maxScroll = _controller.position.maxScrollExtent;
+
       setState(() {
-        final maxScroll = _controller.position.maxScrollExtent;
-        _scrollPosition =
-        maxScroll > 0 ? _controller.offset / maxScroll : 0.0;
+        _scrollPosition = maxScroll > 0 ? _controller.offset / maxScroll : 0.0;
       });
     });
   }
@@ -47,22 +56,24 @@ class _EventsHorizontalListState extends State<EventsHorizontalList> {
     return Column(
       children: [
         SizedBox(
-          height: 280,
+          height: _listHeight,
           child: ListView.separated(
             controller: _controller,
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             itemCount: events.length,
             separatorBuilder: (context, index) =>
-            const SizedBox(width: 20),
+            const SizedBox(width: _cardSpacing),
             itemBuilder: (context, index) {
               return SizedBox(
-                width: 255,
+                width: _cardWidth,
+                height: _cardHeight,
                 child: EventCard(event: events[index]),
               );
             },
           ),
         ),
+
         const SizedBox(height: 20),
 
         // Barre de progression
@@ -71,6 +82,7 @@ class _EventsHorizontalListState extends State<EventsHorizontalList> {
           child: LayoutBuilder(
             builder: (context, constraints) {
               final count = events.isEmpty ? 1 : events.length;
+
               return Container(
                 height: 6,
                 width: constraints.maxWidth,
@@ -81,8 +93,8 @@ class _EventsHorizontalListState extends State<EventsHorizontalList> {
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: FractionallySizedBox(
-                    widthFactor: (1 / count) +
-                        (_scrollPosition * (1 - (1 / count))),
+                    widthFactor:
+                    (1 / count) + (_scrollPosition * (1 - (1 / count))),
                     child: Container(
                       height: 6,
                       decoration: BoxDecoration(

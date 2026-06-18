@@ -10,7 +10,10 @@ class NotificationsProvider extends ChangeNotifier {
   final String _baseUrl = AppConfig.apiUrl;
 
   static const _enabledKey = "notif_enabled";
-  static const _lastSeenKey = "notif_last_seen_iso";
+  static const _lastCheckedKey = "notif_last_checked_iso";
+  static const _cacheKey = "notif_cached_events_json";
+
+  static const Duration _retentionDuration = Duration(days: 1);
 
   bool _enabled = false;
   bool get enabled => _enabled;
@@ -27,7 +30,7 @@ class NotificationsProvider extends ChangeNotifier {
   List<Map<String, dynamic>> _newEvents = [];
   List<Map<String, dynamic>> get newEvents => _newEvents;
 
-  DateTime _lastSeen = DateTime.fromMillisecondsSinceEpoch(0);
+  DateTime _lastChecked = DateTime.fromMillisecondsSinceEpoch(0).toUtc();
 
   Timer? _timer;
 
@@ -40,22 +43,68 @@ class NotificationsProvider extends ChangeNotifier {
 
     _enabled = prefs.getBool(_enabledKey) ?? false;
 
-    final lastSeenIso = prefs.getString(_lastSeenKey);
-    if (lastSeenIso != null) {
-      final parsed = DateTime.tryParse(lastSeenIso);
-      if (parsed != null) _lastSeen = parsed.toUtc();
+    final lastCheckedIso = prefs.getString(_lastCheckedKey);
+    if (lastCheckedIso != null) {
+      final parsed = DateTime.tryParse(lastCheckedIso);
+      if (parsed != null) {
+        _lastChecked = parsed.toUtc();
+      }
     } else {
-      _lastSeen = DateTime.now().toUtc();
-      await prefs.setString(_lastSeenKey, _lastSeen.toIso8601String());
+      _lastChecked = DateTime.now().toUtc();
+      await prefs.setString(_lastCheckedKey, _lastChecked.toIso8601String());
     }
+
+    await _loadCachedEvents();
+    _pruneExpiredEvents();
+    _recomputeBadge();
 
     notifyListeners();
 
-    // Premier check badge
-    await refreshNewEvents();
+    if (_enabled) {
+      await refreshNewEvents();
+    }
 
-    // Optionnel : polling léger si activé
     _startOrStopPolling();
+  }
+
+  Future<void> _loadCachedEvents() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_cacheKey);
+
+    if (raw == null || raw.trim().isEmpty) {
+      _newEvents = [];
+      return;
+    }
+
+    try {
+      final List decoded = jsonDecode(raw);
+      _newEvents = decoded.map((e) => Map<String, dynamic>.from(e)).toList();
+    } catch (_) {
+      _newEvents = [];
+    }
+  }
+
+  Future<void> _saveCachedEvents() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_cacheKey, jsonEncode(_newEvents));
+  }
+
+  void _pruneExpiredEvents() {
+    final now = DateTime.now().toUtc();
+
+    _newEvents = _newEvents.where((event) {
+      final detectedAtRaw = event["_detected_at"];
+      if (detectedAtRaw == null) return false;
+
+      final detectedAt = DateTime.tryParse(detectedAtRaw.toString())?.toUtc();
+      if (detectedAt == null) return false;
+
+      return now.difference(detectedAt) < _retentionDuration;
+    }).toList();
+  }
+
+  void _recomputeBadge() {
+    _badgeCount = _newEvents.where((e) => e["_seen"] != true).length;
   }
 
   Future<void> setEnabled(bool value) async {
@@ -63,18 +112,14 @@ class NotificationsProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_enabledKey, _enabled);
 
+    if (!_enabled) {
+      _badgeCount = 0;
+    } else {
+      await refreshNewEvents();
+    }
+
     notifyListeners();
     _startOrStopPolling();
-
-    // Si on active, on refresh direct
-    if (_enabled) {
-      await refreshNewEvents();
-    } else {
-      // si désactivé, badge = 0
-      _badgeCount = 0;
-      _newEvents = [];
-      notifyListeners();
-    }
   }
 
   void _startOrStopPolling() {
@@ -83,7 +128,6 @@ class NotificationsProvider extends ChangeNotifier {
 
     if (!_enabled) return;
 
-    // Toutes les 60 secondes (tu peux mettre 30s ou 2min)
     _timer = Timer.periodic(const Duration(seconds: 60), (_) async {
       await refreshNewEvents(silent: true);
     });
@@ -99,28 +143,68 @@ class NotificationsProvider extends ChangeNotifier {
     }
 
     try {
+      _pruneExpiredEvents();
+
       final uri = Uri.parse("$_baseUrl/api/events/updates").replace(
         queryParameters: {
-          "since": _lastSeen.toIso8601String(),
+          "since": _lastChecked.toIso8601String(),
           "limit": "50",
         },
       );
 
       final resp = await http.get(uri);
+
       if (resp.statusCode == 200) {
         final List data = jsonDecode(resp.body);
 
-        _newEvents = data.map((e) => Map<String, dynamic>.from(e)).toList();
+        final fetched = data.map((e) => Map<String, dynamic>.from(e)).toList();
 
-        // image_url relative -> absolue
-        for (final ev in _newEvents) {
+        final nowIso = DateTime.now().toUtc().toIso8601String();
+
+        for (final ev in fetched) {
           final img = ev["image_url"]?.toString() ?? "";
           if (img.isNotEmpty && !img.startsWith("http")) {
             ev["image_url"] = "$_baseUrl$img";
           }
+
+          ev["_seen"] = false;
+          ev["_detected_at"] = nowIso;
         }
 
-        _badgeCount = _newEvents.length;
+        final Map<String, Map<String, dynamic>> mergedById = {
+          for (final e in _newEvents)
+            (e["id"]?.toString() ?? UniqueKey().toString()): e,
+        };
+
+        for (final e in fetched) {
+          final id = e["id"]?.toString();
+          if (id == null || id.isEmpty) continue;
+
+          if (!mergedById.containsKey(id)) {
+            mergedById[id] = e;
+          }
+        }
+
+        _newEvents = mergedById.values.toList();
+
+        _newEvents.sort((a, b) {
+          final aDetected =
+              DateTime.tryParse((a["_detected_at"] ?? "").toString()) ??
+                  DateTime.fromMillisecondsSinceEpoch(0);
+          final bDetected =
+              DateTime.tryParse((b["_detected_at"] ?? "").toString()) ??
+                  DateTime.fromMillisecondsSinceEpoch(0);
+          return bDetected.compareTo(aDetected);
+        });
+
+        _lastChecked = DateTime.now().toUtc();
+
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_lastCheckedKey, _lastChecked.toIso8601String());
+
+        _pruneExpiredEvents();
+        _recomputeBadge();
+        await _saveCachedEvents();
       } else {
         _error = "Erreur serveur : ${resp.statusCode}";
       }
@@ -132,16 +216,24 @@ class NotificationsProvider extends ChangeNotifier {
     }
   }
 
-  /// Quand l’utilisateur ouvre la page Notifications et “consulte”
+  /// Marque les notifications affichées comme vues,
+  /// sans les supprimer de la liste.
   Future<void> markAllAsSeen() async {
-    final now = DateTime.now().toUtc();
-    _lastSeen = now;
+    bool changed = false;
 
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_lastSeenKey, _lastSeen.toIso8601String());
+    for (final event in _newEvents) {
+      if (event["_seen"] != true) {
+        event["_seen"] = true;
+        changed = true;
+      }
+    }
 
-    _badgeCount = 0;
-    _newEvents = [];
+    _recomputeBadge();
+
+    if (changed) {
+      await _saveCachedEvents();
+    }
+
     notifyListeners();
   }
 
