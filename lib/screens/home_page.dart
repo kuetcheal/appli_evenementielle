@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../providers/events_provider.dart';
 import 'widgets/home_header.dart';
 import 'widgets/category_chips.dart';
 import 'widgets/events_horizontal_list.dart';
 import 'widgets/nearby_section.dart';
 import 'widgets/home_favoris.dart';
+import 'widgets/popular_section.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -19,9 +21,12 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
 
-    // 🔄 Charger les events au démarrage
-    Future.microtask(() =>
-        Provider.of<EventsProvider>(context, listen: false).fetchEvents());
+    Future.microtask(() {
+      final provider = Provider.of<EventsProvider>(context, listen: false);
+
+      provider.fetchEvents();
+      provider.fetchPopularEvents();
+    });
   }
 
   @override
@@ -29,28 +34,25 @@ class _HomePageState extends State<HomePage> {
     final eventsProvider = context.watch<EventsProvider>();
     final events = eventsProvider.filteredEvents;
 
-    // ✅ bg-color comme ton écran "Événements à venir"
     const pageBg = Color(0xFFF7F6FB);
 
     return Scaffold(
       backgroundColor: pageBg,
       body: Container(
-        color: pageBg, // (au cas où)
+        color: pageBg,
         child: SingleChildScrollView(
           padding: const EdgeInsets.only(bottom: 90),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ✅ HEADER
               const HomeHeader(),
 
               const SizedBox(height: 16),
 
-              // --- CATEGORIES ---
               const CategoryChips(),
+
               const SizedBox(height: 16),
 
-              // --- SECTION "À VENIR" ---
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Row(
@@ -70,9 +72,9 @@ class _HomePageState extends State<HomePage> {
                   ],
                 ),
               ),
+
               const SizedBox(height: 10),
 
-              // --- PARTIE ÉVÉNÉMENTS ---
               if (eventsProvider.isLoading)
                 const Center(
                   child: Padding(
@@ -93,12 +95,14 @@ class _HomePageState extends State<HomePage> {
 
               const SizedBox(height: 40),
 
-              // --- SECTION "À PROXIMITÉ DE VOUS" ---
+              const PopularSection(),
+
+              const SizedBox(height: 40),
+
               const NearbySection(),
 
               const SizedBox(height: 40),
 
-              // --- SECTION "MES FAVORIS" ---
               const HomeFavorisSection(),
 
               const SizedBox(height: 40),

@@ -6,23 +6,23 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../config/app_config.dart';
 
 class EventsProvider extends ChangeNotifier {
-  // base url depuis .env
   final String _baseUrl = AppConfig.apiUrl;
 
   List<Map<String, dynamic>> _events = [];
   List<Map<String, dynamic>> _nearbyEvents = [];
+  List<Map<String, dynamic>> _popularEvents = [];
 
   bool _isLoading = false;
   bool _isLoadingNearby = false;
+  bool _isLoadingPopular = false;
 
   String? _error;
   String? _nearbyError;
+  String? _popularError;
 
-  // filtre sélectionné
   String? _selectedType;
   String? get selectedType => _selectedType;
 
-  // favoris persistés
   static const String _favKey = "favorite_event_ids";
   final Set<int> _favoriteIds = {};
 
@@ -30,17 +30,17 @@ class EventsProvider extends ChangeNotifier {
     _loadFavorites();
   }
 
-  // -------------------------
-  // GETTERS
-  // -------------------------
   List<Map<String, dynamic>> get events => _events;
   List<Map<String, dynamic>> get nearbyEvents => _nearbyEvents;
+  List<Map<String, dynamic>> get popularEvents => _popularEvents;
 
   bool get isLoading => _isLoading;
   bool get isLoadingNearby => _isLoadingNearby;
+  bool get isLoadingPopular => _isLoadingPopular;
 
   String? get error => _error;
   String? get nearbyError => _nearbyError;
+  String? get popularError => _popularError;
 
   void setSelectedType(String? type) {
     if (_selectedType == type) {
@@ -48,10 +48,10 @@ class EventsProvider extends ChangeNotifier {
     } else {
       _selectedType = type;
     }
+
     notifyListeners();
   }
 
-  // liste filtrée selon event_type
   List<Map<String, dynamic>> get filteredEvents {
     if (_selectedType == null) return _events;
 
@@ -63,11 +63,11 @@ class EventsProvider extends ChangeNotifier {
     }).toList();
   }
 
-  // Favoris : fusion events + nearby sans doublons
   List<Map<String, dynamic>> get favorites {
     final all = <Map<String, dynamic>>[
       ..._events,
       ..._nearbyEvents,
+      ..._popularEvents,
     ];
 
     final seen = <int>{};
@@ -75,6 +75,7 @@ class EventsProvider extends ChangeNotifier {
 
     for (final e in all) {
       final id = _extractId(e["id"]);
+
       if (id == null) continue;
 
       if (_favoriteIds.contains(id) && !seen.contains(id)) {
@@ -87,9 +88,6 @@ class EventsProvider extends ChangeNotifier {
     return result;
   }
 
-  // -------------------------
-  // HELPERS
-  // -------------------------
   int? _extractId(dynamic raw) {
     if (raw is int) return raw;
     if (raw is String) return int.tryParse(raw);
@@ -100,6 +98,16 @@ class EventsProvider extends ChangeNotifier {
     if (raw is num) return raw.toDouble();
     if (raw is String) return double.tryParse(raw);
     return double.tryParse(raw?.toString() ?? "");
+  }
+
+  bool _toBool(dynamic raw) {
+    if (raw is bool) return raw;
+    if (raw is num) return raw == 1;
+    if (raw is String) {
+      final v = raw.trim().toLowerCase();
+      return v == "1" || v == "true" || v == "yes" || v == "oui";
+    }
+    return false;
   }
 
   Future<Map<String, String>> _authHeaders() async {
@@ -144,6 +152,8 @@ class EventsProvider extends ChangeNotifier {
     map["likes"] = map["likes"] ?? 0;
     map["dislikes"] = map["dislikes"] ?? 0;
 
+    map["is_popular"] = _toBool(map["is_popular"]);
+
     if (map["distance"] != null) {
       map["distance"] = _toDouble(map["distance"]);
     }
@@ -154,9 +164,6 @@ class EventsProvider extends ChangeNotifier {
     return map;
   }
 
-  // -------------------------
-  // FAVORIS PERSISTÉS
-  // -------------------------
   Future<void> _loadFavorites() async {
     final prefs = await SharedPreferences.getInstance();
     final ids = prefs.getStringList(_favKey) ?? [];
@@ -167,6 +174,7 @@ class EventsProvider extends ChangeNotifier {
 
     _applyFavoritesToList(_events);
     _applyFavoritesToList(_nearbyEvents);
+    _applyFavoritesToList(_popularEvents);
 
     notifyListeners();
   }
@@ -192,9 +200,6 @@ class EventsProvider extends ChangeNotifier {
     }
   }
 
-  // -------------------------
-  // RÉCUPÉRER TOUS LES EVENTS PUBLICS
-  // -------------------------
   Future<void> fetchEvents() async {
     _isLoading = true;
     _error = null;
@@ -221,9 +226,32 @@ class EventsProvider extends ChangeNotifier {
     }
   }
 
-  // -------------------------
-  // EVENTS PROCHES PUBLICS PAR COORDONNÉES
-  // -------------------------
+  Future<void> fetchPopularEvents() async {
+    _isLoadingPopular = true;
+    _popularError = null;
+    notifyListeners();
+
+    try {
+      final response = await http.get(
+        Uri.parse("$_baseUrl/api/events/popular"),
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+
+        _popularEvents = data.map((e) => _mapEvent(e)).toList();
+        _applyFavoritesToList(_popularEvents);
+      } else {
+        _popularError = "Erreur serveur : ${response.statusCode}";
+      }
+    } catch (e) {
+      _popularError = "Erreur de connexion : $e";
+    } finally {
+      _isLoadingPopular = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> fetchNearbyEventsByCoords({
     required double lat,
     required double lng,
@@ -264,11 +292,6 @@ class EventsProvider extends ChangeNotifier {
     }
   }
 
-  // -------------------------
-  // EVENTS PROCHES PAR USER CONNECTÉ
-  // Cette méthode reste utile en fallback si tu veux utiliser le mail.
-  // Elle envoie maintenant le token.
-  // -------------------------
   Future<void> fetchNearbyEvents(String mail) async {
     if (mail.trim().isEmpty) return;
 
@@ -309,11 +332,9 @@ class EventsProvider extends ChangeNotifier {
     }
   }
 
-  // -------------------------
-  // LIKES / DISLIKES LOCAUX
-  // -------------------------
   void likeEvent(int id) {
     final index = _events.indexWhere((e) => _extractId(e["id"]) == id);
+
     if (index == -1) return;
 
     _events[index]["likes"] = (_events[index]["likes"] ?? 0) + 1;
@@ -322,16 +343,13 @@ class EventsProvider extends ChangeNotifier {
 
   void dislikeEvent(int id) {
     final index = _events.indexWhere((e) => _extractId(e["id"]) == id);
+
     if (index == -1) return;
 
     _events[index]["dislikes"] = (_events[index]["dislikes"] ?? 0) + 1;
     notifyListeners();
   }
 
-  // -------------------------
-  // FAVORIS LOCAUX
-  // L’action sera bloquée côté UI si l’utilisateur n’est pas connecté.
-  // -------------------------
   void toggleFavorite(int id) {
     if (_favoriteIds.contains(id)) {
       _favoriteIds.remove(id);
@@ -341,6 +359,7 @@ class EventsProvider extends ChangeNotifier {
 
     _applyFavoritesToList(_events);
     _applyFavoritesToList(_nearbyEvents);
+    _applyFavoritesToList(_popularEvents);
 
     _saveFavorites();
     notifyListeners();

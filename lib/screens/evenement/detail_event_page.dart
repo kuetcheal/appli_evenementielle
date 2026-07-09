@@ -4,6 +4,7 @@ import 'package:geolocator/geolocator.dart';
 import '../paiement/ticket_webview_page.dart';
 import '../widgets/directions_button.dart';
 import '../widgets/distance_badge.dart';
+import 'event_plan_page.dart';
 
 class DetailEventPage extends StatefulWidget {
   final Map<String, dynamic> event;
@@ -19,17 +20,24 @@ class _DetailEventPageState extends State<DetailEventPage> {
 
   bool _isValidHttpUrl(dynamic value) {
     if (value == null) return false;
+
     final s = value.toString().trim();
+
     if (s.isEmpty) return false;
     if (s.toLowerCase() == "null") return false;
+
     return s.startsWith("http://") || s.startsWith("https://");
   }
 
   double? _asDouble(dynamic v) {
     if (v == null) return null;
+
     if (v is num) return v.toDouble();
+
     final s = v.toString().trim();
-    if (s.isEmpty) return null;
+
+    if (s.isEmpty || s.toLowerCase() == "null") return null;
+
     return double.tryParse(s);
   }
 
@@ -40,12 +48,15 @@ class _DetailEventPageState extends State<DetailEventPage> {
     if (destLat == null || destLng == null) return null;
 
     final enabled = await Geolocator.isLocationServiceEnabled();
+
     if (!enabled) return null;
 
     var perm = await Geolocator.checkPermission();
+
     if (perm == LocationPermission.denied) {
       perm = await Geolocator.requestPermission();
     }
+
     if (perm == LocationPermission.denied ||
         perm == LocationPermission.deniedForever) {
       return null;
@@ -65,7 +76,6 @@ class _DetailEventPageState extends State<DetailEventPage> {
     return meters / 1000.0;
   }
 
-  // ✅ Même logique de format que dans list_event.dart
   String _formatEventDateLine(Map<String, dynamic> e) {
     final rawDate = e["date_event"];
     final rawTime = e["time_event"];
@@ -75,6 +85,7 @@ class _DetailEventPageState extends State<DetailEventPage> {
     }
 
     DateTime? date;
+
     try {
       date = DateTime.parse(rawDate.toString());
     } catch (_) {
@@ -86,6 +97,7 @@ class _DetailEventPageState extends State<DetailEventPage> {
 
     if (rawTime != null && rawTime.toString().trim().isNotEmpty) {
       final parts = rawTime.toString().split(":");
+
       if (parts.length >= 2) {
         hour = int.tryParse(parts[0]);
         minute = int.tryParse(parts[1]);
@@ -93,6 +105,7 @@ class _DetailEventPageState extends State<DetailEventPage> {
     }
 
     const days = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+
     const months = [
       "Jan",
       "Feb",
@@ -117,31 +130,38 @@ class _DetailEventPageState extends State<DetailEventPage> {
     }
 
     final isPm = hour >= 12;
+
     int h12 = hour % 12;
+
     if (h12 == 0) h12 = 12;
+
     final mm = minute.toString().padLeft(2, "0");
 
     return "$dayName, $monthName $dayNum • $h12:$mm ${isPm ? "PM" : "AM"}";
   }
 
   void _openPlanEvent() {
-    final dynamic rawPlanUrl =
-        widget.event["plan_event_url"] ?? widget.event["plan_url"];
+    final latitude = _asDouble(widget.event["latitude"] ?? widget.event["lat"]);
+    final longitude =
+    _asDouble(widget.event["longitude"] ?? widget.event["lng"]);
 
-    if (_isValidHttpUrl(rawPlanUrl)) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => TicketWebViewPage(url: rawPlanUrl.toString()),
-        ),
-      );
-    } else {
+    if (latitude == null || longitude == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Aucun plan d’évènement disponible."),
+          content: Text(
+            "Impossible d’ouvrir le plan : coordonnées de l’évènement manquantes.",
+          ),
         ),
       );
+      return;
     }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EventPlanPage(event: widget.event),
+      ),
+    );
   }
 
   @override
@@ -151,7 +171,10 @@ class _DetailEventPageState extends State<DetailEventPage> {
     final destLat = _asDouble(widget.event["latitude"] ?? widget.event["lat"]);
     final destLng = _asDouble(widget.event["longitude"] ?? widget.event["lng"]);
 
-    _distanceFuture = _calculateDistanceKm(destLat: destLat, destLng: destLng);
+    _distanceFuture = _calculateDistanceKm(
+      destLat: destLat,
+      destLng: destLng,
+    );
   }
 
   @override
@@ -177,6 +200,7 @@ class _DetailEventPageState extends State<DetailEventPage> {
 
     final String locationTitle =
     location.isNotEmpty ? location : "Lieu non renseigné";
+
     final String locationAddress =
     city.isNotEmpty ? "$city, France" : "Ville non renseignée";
 
@@ -200,15 +224,18 @@ class _DetailEventPageState extends State<DetailEventPage> {
                     fit: BoxFit.cover,
                     loadingBuilder: (context, child, loadingProgress) {
                       if (loadingProgress == null) return child;
+
                       return SizedBox(
                         height: 260,
                         width: double.infinity,
                         child: Center(
                           child: CircularProgressIndicator(
-                            value: loadingProgress.expectedTotalBytes !=
-                                null
-                                ? loadingProgress.cumulativeBytesLoaded /
-                                (loadingProgress.expectedTotalBytes!)
+                            value:
+                            loadingProgress.expectedTotalBytes != null
+                                ? loadingProgress
+                                .cumulativeBytesLoaded /
+                                loadingProgress
+                                    .expectedTotalBytes!
                                 : null,
                           ),
                         ),
@@ -230,35 +257,45 @@ class _DetailEventPageState extends State<DetailEventPage> {
                     fit: BoxFit.cover,
                   ),
                 ),
+
                 Positioned(
                   top: 44,
                   left: 16,
                   child: CircleAvatar(
                     backgroundColor: Colors.black.withOpacity(0.45),
                     child: IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                      icon: const Icon(
+                        Icons.arrow_back,
+                        color: Colors.white,
+                      ),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ),
                 ),
+
                 Positioned(
                   top: 44,
                   right: 16,
                   child: CircleAvatar(
                     backgroundColor: Colors.black.withOpacity(0.45),
                     child: IconButton(
-                      icon: const Icon(Icons.favorite_border,
-                          color: Colors.white),
+                      icon: const Icon(
+                        Icons.favorite_border,
+                        color: Colors.white,
+                      ),
                       onPressed: () {},
                     ),
                   ),
                 ),
+
                 Positioned(
                   top: 92,
                   left: 64,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 8),
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.black.withOpacity(0.35),
                       borderRadius: BorderRadius.circular(20),
@@ -280,13 +317,16 @@ class _DetailEventPageState extends State<DetailEventPage> {
                     ),
                   ),
                 ),
+
                 Positioned(
                   bottom: -28,
                   left: 24,
                   right: 24,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 10),
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(22),
@@ -312,16 +352,23 @@ class _DetailEventPageState extends State<DetailEventPage> {
                             ],
                           ),
                         ),
+
                         const SizedBox(width: 6),
+
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 6),
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(14),
                             gradient: const LinearGradient(
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
-                              colors: [Color(0xFF7AA3FF), Color(0xFF6C63FF)],
+                              colors: [
+                                Color(0xFF7AA3FF),
+                                Color(0xFF6C63FF),
+                              ],
                             ),
                           ),
                           child: const Text(
@@ -333,13 +380,17 @@ class _DetailEventPageState extends State<DetailEventPage> {
                             ),
                           ),
                         ),
+
                         const Spacer(),
+
                         TextButton(
                           onPressed: () {},
                           style: TextButton.styleFrom(
                             foregroundColor: const Color(0xFF6C63FF),
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 8),
+                              horizontal: 14,
+                              vertical: 8,
+                            ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(14),
                             ),
@@ -360,7 +411,9 @@ class _DetailEventPageState extends State<DetailEventPage> {
                 ),
               ],
             ),
+
             const SizedBox(height: 40),
+
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
@@ -374,6 +427,7 @@ class _DetailEventPageState extends State<DetailEventPage> {
                       height: 1.2,
                     ),
                   ),
+
                   const SizedBox(height: 16),
 
                   _InfoRow(
@@ -382,6 +436,7 @@ class _DetailEventPageState extends State<DetailEventPage> {
                     title: formattedDate,
                     subtitle: "Date de l’évènement",
                   ),
+
                   const SizedBox(height: 14),
 
                   _InfoRow(
@@ -395,14 +450,15 @@ class _DetailEventPageState extends State<DetailEventPage> {
                     future: _distanceFuture,
                     builder: (context, snapshot) {
                       final km = snapshot.data;
+
                       if (km == null) return const SizedBox.shrink();
+
                       return DistanceBadge(distanceKm: km);
                     },
                   ),
 
                   const SizedBox(height: 22),
 
-                  // ✅ Deux boutons sur la même ligne
                   Row(
                     children: [
                       Expanded(
@@ -414,7 +470,9 @@ class _DetailEventPageState extends State<DetailEventPage> {
                           ),
                         ),
                       ),
+
                       const SizedBox(width: 12),
+
                       Expanded(
                         child: SizedBox(
                           height: 52,
@@ -437,6 +495,7 @@ class _DetailEventPageState extends State<DetailEventPage> {
                       fontSize: 16.5,
                     ),
                   ),
+
                   const SizedBox(height: 12),
 
                   if (description.isNotEmpty)
@@ -484,7 +543,10 @@ class _DetailEventPageState extends State<DetailEventPage> {
                           gradient: const LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
-                            colors: [Color(0xFF7A42F4), Color(0xFF6C63FF)],
+                            colors: [
+                              Color(0xFF7A42F4),
+                              Color(0xFF6C63FF),
+                            ],
                           ),
                           boxShadow: [
                             BoxShadow(
@@ -507,8 +569,10 @@ class _DetailEventPageState extends State<DetailEventPage> {
                                 ),
                               ),
                               SizedBox(width: 8),
-                              Icon(Icons.arrow_forward_rounded,
-                                  color: Colors.white),
+                              Icon(
+                                Icons.arrow_forward_rounded,
+                                color: Colors.white,
+                              ),
                             ],
                           ),
                         ),
@@ -552,23 +616,35 @@ class _InfoRow extends StatelessWidget {
             color: iconBg.withOpacity(0.12),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Icon(icon, color: iconBg, size: 20),
+          child: Icon(
+            icon,
+            color: iconBg,
+            size: 20,
+          ),
         ),
+
         const SizedBox(width: 12),
+
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontWeight: FontWeight.w600,
                   fontSize: 15,
                 ),
               ),
+
               const SizedBox(height: 2),
+
               Text(
                 subtitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: Colors.grey,
                   fontSize: 13.2,
@@ -576,7 +652,7 @@ class _InfoRow extends StatelessWidget {
               ),
             ],
           ),
-        )
+        ),
       ],
     );
   }
@@ -585,14 +661,23 @@ class _InfoRow extends StatelessWidget {
 class _BulletLine extends StatelessWidget {
   final String text;
 
-  const _BulletLine({Key? key, required this.text}) : super(key: key);
+  const _BulletLine({
+    Key? key,
+    required this.text,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        const Icon(Icons.check_circle, color: Colors.green, size: 18),
+        const Icon(
+          Icons.check_circle,
+          color: Colors.green,
+          size: 18,
+        ),
+
         const SizedBox(width: 8),
+
         Expanded(
           child: Text(
             text,
@@ -660,7 +745,10 @@ class _GradientActionButton extends StatelessWidget {
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF7A42F4), Color(0xFF6C63FF)],
+            colors: [
+              Color(0xFF7A42F4),
+              Color(0xFF6C63FF),
+            ],
           ),
           boxShadow: [
             BoxShadow(
@@ -674,8 +762,14 @@ class _GradientActionButton extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: Colors.white, size: 18),
+              Icon(
+                icon,
+                color: Colors.white,
+                size: 18,
+              ),
+
               const SizedBox(width: 8),
+
               Flexible(
                 child: Text(
                   text,
